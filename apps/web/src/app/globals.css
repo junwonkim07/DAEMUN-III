@@ -26,22 +26,17 @@
   --font-serif: roman, "Times New Roman", serif;
 }
 
-/* skiper-UI pack fonts (same files the pack's demos use) */
-@font-face {
-  font-family: "skiper-custom";
-  src: url("/fonts/skiper-custom.woff") format("woff");
-  font-display: swap;
-  font-weight: 400;
-  font-style: normal;
-}
+/* skiper-UI pack body face (P22 Parrish Roman) */
 @font-face {
   font-family: roman;
   src: url("/fonts/skiper-roman.woff") format("woff");
   font-display: swap;
 }
 
+/* Heading face: Cormorant SC, loaded via next/font in app/layout.tsx */
 .font-custom {
-  font-family: "skiper-custom", Arial, sans-serif;
+  font-family: var(--font-cormorant-sc), "Cormorant SC", Georgia, serif;
+  font-weight: 600;
 }
 .font-roman {
   font-family: roman, "Times New Roman", serif;

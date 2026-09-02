@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Cormorant_SC } from "next/font/google";
 import "./globals.css";
 import { AppleNav } from "@/components/site/apple-nav";
 import { SiteFooter } from "@/components/site/footer";
@@ -9,6 +10,14 @@ import { getSite } from "@/lib/site";
  * itself is still cached (60s / tag "site") inside getSite().
  */
 export const revalidate = 0;
+
+/** Display face for every heading (.font-custom in globals.css). */
+const cormorantSC = Cormorant_SC({
+  weight: ["500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-cormorant-sc",
+  display: "swap",
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const { conference } = await getSite();
@@ -25,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const { conference } = await getSite();
 
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className={`${cormorantSC.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <AppleNav />
         <main className="flex-1 pt-12">{children}</main>
