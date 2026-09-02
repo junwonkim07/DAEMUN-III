@@ -24,6 +24,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@daemun/api", "dev"],
       "port": 4000
+    },
+    {
+      "name": "daemun-admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@daemun/admin", "dev"],
+      "port": 3001
     }
   ]
 }

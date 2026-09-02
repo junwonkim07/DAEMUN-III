@@ -1,51 +1,67 @@
 // apps/admin/src/app/dashboard/page.tsx
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { signOut, useSession } from "@/lib/auth-client";
+import Link from "next/link";
+import { useSite } from "@/lib/resolutions";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { data: session, isPending, error } = useSession();
-
-  useEffect(() => {
-    // 세션 없음 — proxy.ts가 대부분 걸러주지만, 쿠키만 있고 세션이 서버에서
-    // 이미 만료/밴 처리된 경우를 위한 2차 방어선. 네트워크/서버 오류(error)는
-    // 세션 부재가 아니므로 리다이렉트하지 않고 아래에서 메시지를 보여준다.
-    if (!isPending && !error && !session) {
-      router.replace("/login");
-    }
-  }, [isPending, error, session, router]);
-
-  if (isPending) {
-    return <p className="p-6 text-sm text-neutral-500">불러오는 중...</p>;
-  }
-
-  if (error) {
-    return <p className="p-6 text-sm text-red-600">세션을 확인할 수 없습니다: {error.message}</p>;
-  }
-
-  if (!session) return null;
+  const { data, isPending, error } = useSite();
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">대시보드</h1>
-        <button
-          onClick={() => signOut().then(() => router.push("/login"))}
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
+      <h1 className="text-lg font-semibold">개요</h1>
+
+      {isPending && (
+        <p className="mt-4 text-sm text-neutral-500">불러오는 중...</p>
+      )}
+      {error && (
+        <p className="mt-4 text-sm text-red-600">
+          데이터를 불러오지 못했습니다: {error.message}
+        </p>
+      )}
+
+      {data && (
+        <div className="mt-6 grid max-w-lg grid-cols-2 gap-3">
+          <Stat label="위원회" value={data.committees.length} />
+          <Stat
+            label="의제"
+            value={data.committees.reduce((n, c) => n + c.topics.length, 0)}
+          />
+          <Stat
+            label="결의안"
+            value={Object.values(data.resolutions).reduce(
+              (n, rs) => n + rs.length,
+              0,
+            )}
+          />
+          <Stat
+            label="승인됨"
+            value={Object.values(data.resolutions)
+              .flat()
+              .filter((r) => r.status === "approved").length}
+          />
+        </div>
+      )}
+
+      <p className="mt-8 text-sm text-neutral-600">
+        컨퍼런스 당일 운영은{" "}
+        <Link
+          href="/dashboard/resolutions"
+          className="font-medium text-neutral-900 underline"
         >
-          로그아웃
-        </button>
-      </div>
-      <p className="mt-4 text-sm text-neutral-600">
-        {session.user.email}로 로그인됨 (role: {session.user.role ?? "없음"})
+          결의안 현황판
+        </Link>
+        에서. 사무국·회의정보 화면은 이후 추가됩니다 (handover.md §5).
       </p>
-      <p className="mt-8 text-sm text-neutral-400">
-        화면 스캐폴딩은 여기까지. 다음: 결의안 현황판, 사무국 CRUD 등
-        (handover.md §5 우선순위 참고).
-      </p>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-4">
+      <p className="text-xs text-neutral-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
