@@ -69,6 +69,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080" # API when running on a bare IP (API_DOMAIN=http://<ip>:8080)
     environment:
       WEB_DOMAIN: ${WEB_DOMAIN:?set WEB_DOMAIN in .env}
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}

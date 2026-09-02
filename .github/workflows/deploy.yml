@@ -1,0 +1,45 @@
+name: Deploy
+
+# Every push to main (i.e. every merged PR) rebuilds and restarts the stack
+# on the VPS. Secrets required (Settings → Secrets → Actions):
+#   VPS_HOST      e.g. 104.36.69.86
+#   VPS_SSH_KEY   private key whose public half is in root's authorized_keys
+#   VPS_HOST_KEY  output of `ssh-keyscan -t ed25519 <host>` (pins the server)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          echo "${{ secrets.VPS_HOST_KEY }}" >> ~/.ssh/known_hosts
+
+      - name: Pull and rebuild on the server
+        run: |
+          ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} 'bash -s' <<'REMOTE'
+            set -euo pipefail
+            cd /opt/daemun
+            git fetch --prune origin main
+            git reset --hard origin/main
+            docker compose up -d --build --remove-orphans
+            docker image prune -f >/dev/null
+            docker compose ps
+          REMOTE
+
+      - name: Health check
+        run: |
+          ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} \
+            'cd /opt/daemun && for i in $(seq 1 20); do docker compose exec -T api wget -qO- http://localhost:4000/health && exit 0; sleep 3; done; echo "api not healthy"; docker compose logs --tail=50 api; exit 1'
