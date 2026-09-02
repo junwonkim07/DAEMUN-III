@@ -1,3 +1,4 @@
+
 # DAEMUN III — 어드민 패널 인수인계
 
 어드민 패널(대시보드)을 만들 사람을 위한 문서. 배경·결정 이유·전체 구조는 [README.md](README.md)에 있고, 여기는 **패널 만드는 데 필요한 것만** 추렸다.
@@ -8,15 +9,15 @@
 
 ## 1. 지금 상태
 
-| | 상태 |
-|---|---|
-| 공개 사이트 `apps/web` | 완성. API에서 콘텐츠 읽음, API 죽으면 `defaultSite`로 폴백 |
-| API `apps/api` | 완성. 인증 + 모든 콘텐츠 CRUD + 파일 업로드 + 캐시 무효화 |
-| DB `packages/db` | 완성. 마이그레이션 1개, 부팅 시 자동 마이그레이션·시드 |
+|                          | 상태                                                                     |
+| ------------------------ | ------------------------------------------------------------------------ |
+| 공개 사이트`apps/web`  | 완성. API에서 콘텐츠 읽음, API 죽으면`defaultSite`로 폴백              |
+| API`apps/api`          | 완성. 인증 + 모든 콘텐츠 CRUD + 파일 업로드 + 캐시 무효화                |
+| DB`packages/db`        | 완성. 마이그레이션 1개, 부팅 시 자동 마이그레이션·시드                  |
 | **어드민 패널 UI** | **없음 — 당신이 만든다.** API는 패널에 필요한 모든 것을 이미 제공 |
-| 실제 VPS 배포 | 아직 안 해봄 |
+| 실제 VPS 배포            | 아직 안 해봄                                                             |
 
-콘텐츠는 대부분 `TBA` 플레이스홀더. 사무국 **직책 배정은 임시**(사진·이름만 실제) — 패널에서 실제 값으로 고치는 게 첫 실사용이 될 것.
+콘텐츠는 대부분 `TBA` 플레이스홀더. 사무국 **직책 배정은 맞음...!**— 그러나 패널에서 향후 MUN 개최시 수정 가능하게 만드는것
 
 ---
 
@@ -46,6 +47,7 @@ REVALIDATE_SECRET=dev
 ## 3. 인증 — 이 세 가지를 틀리면 아무것도 안 된다
 
 1. **패널은 `/api/*`와 `/uploads/*`를 API로 rewrite해야 한다.** 세션 쿠키가 패널 도메인의 first-party 쿠키가 되어야 하기 때문. Next.js면:
+
    ```ts
    // next.config.ts
    async rewrites() {
@@ -56,15 +58,18 @@ REVALIDATE_SECRET=dev
      ];
    }
    ```
+
    그러면 패널 코드에서는 그냥 `fetch("/api/admin/...")`.
 2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 배포 시 `https://admin.<도메인>`으로 바꿔야 한다 (`docker-compose.yml`은 지금 `API_DOMAIN`으로 되어 있음 — **수정 필요**).
 3. **클라이언트는 `better-auth/react`를 쓴다.**
+
    ```ts
    import { createAuthClient } from "better-auth/react";
    import { adminClient } from "better-auth/client/plugins";
    export const auth = createAuthClient({ plugins: [adminClient()] });
    // auth.signIn.email({ email, password }), auth.useSession(), auth.admin.createUser(...)
    ```
+
    공개 회원가입은 꺼져 있다. 계정은 관리자가 `auth.admin.createUser`로 발급.
 
 라우트 보호는 패널에서 쿠키 유무만 낙관적으로 보고(Next 16은 `proxy.ts`), 실제 권한은 API의 `requireAdmin`(세션·밴·`role === "admin"`)이 판단한다. 401 → 로그인 페이지로, 403 → 권한 없음 화면.
@@ -75,18 +80,18 @@ REVALIDATE_SECRET=dev
 
 base: `/api/admin` (관리자 세션 필요). 응답 타입은 전부 `@daemun/shared`에서 import.
 
-| 리소스 | 경로 | 비고 |
-|---|---|---|
-| 회의 정보 | `GET/PATCH /conference` | 싱글톤 (id `"main"`) |
-| 미리보기 | `GET /site` | 공개 사이트가 받는 `SiteData` 그대로 |
-| 위원회 | `/committees` | |
-| 의제 | `/topics` | `report` = chair report PDF 경로 |
-| 부서 | `/departments` | |
-| 인물 | `/people` | `section`: `director`/`executive`/`department`/`chair` |
-| 결의안 | `/resolutions` | `status`: `awaiting`/`review`/`approved` |
-| 일정 | `/schedule/days`, `/schedule/items` | |
-| 문서 | `/documents` | |
-| 업로드 | `POST /uploads` | multipart, 필드명 `file` |
+| 리소스    | 경로                                    | 비고                                                             |
+| --------- | --------------------------------------- | ---------------------------------------------------------------- |
+| 회의 정보 | `GET/PATCH /conference`               | 싱글톤 (id`"main"`)                                            |
+| 미리보기  | `GET /site`                           | 공개 사이트가 받는`SiteData` 그대로                            |
+| 위원회    | `/committees`                         |                                                                  |
+| 의제      | `/topics`                             | `report` = chair report PDF 경로                               |
+| 부서      | `/departments`                        |                                                                  |
+| 인물      | `/people`                             | `section`: `director`/`executive`/`department`/`chair` |
+| 결의안    | `/resolutions`                        | `status`: `awaiting`/`review`/`approved`                 |
+| 일정      | `/schedule/days`, `/schedule/items` |                                                                  |
+| 문서      | `/documents`                          |                                                                  |
+| 업로드    | `POST /uploads`                       | multipart, 필드명`file`                                        |
 
 CRUD 리소스는 전부 같은 5개:
 
@@ -150,16 +155,16 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 ### 6-3. 사이트 쪽 남은 일 (회의에서 나온 것, API 변경 불필요)
 
-| 항목 | 상태 | 비고 |
-|---|---|---|
-| 메인 페이지 영상 | 대기 | 미디어팀이 나중에 전달. 지금은 `public/main.mp4` 임시 |
-| 메인 페이지 주제 배경 설명 | 미착수 | 일부러 비워둠. 디자인 확정 후 준원·민찬이 넣기로 |
-| 메인 페이지 일정 + 제출 데드라인 | 대기 | 사무국이 확정되면 전달. `schedule` 테이블·API는 이미 있고 **사이트에 표시만 안 됨** (`ScheduleTimeline` 컴포넌트 미사용). 데드라인은 눈에 띄게 |
-| DAEMUN 설명 | 미착수 | 메인 또는 Guide to MUN 어디든 상관없음 |
-| Secretariat 직책 배정 | 임시 | 사진·이름만 실제. 실제 배정으로 교체 (패널 생기면 거기서) |
-| Secretariat 인사말(greeting) | 데이터만 준비 | `people.greeting` 필드와 렌더링은 있으나 값이 비어 있고, 인사말이 보이게 **디자인 재작업** 예정 |
-| Committees 토픽 → chair report PDF | 완료 | `topics.report`에 PDF 경로 넣으면 됨. 9월에 업로드 |
-| 결의안 다운로드 버튼 | 의도적 차단 | approved 전엔 링크 없음. 공개 시점 제어는 6-1 참고 |
+| 항목                                | 상태          | 비고                                                                                                                                                     |
+| ----------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 메인 페이지 영상                    | 대기          | 미디어팀이 나중에 전달. 지금은`public/main.mp4` 임시                                                                                                   |
+| 메인 페이지 주제 배경 설명          | 미착수        | 일부러 비워둠. 디자인 확정 후 준원·민찬이 넣기로                                                                                                        |
+| 메인 페이지 일정 + 제출 데드라인    | 대기          | 사무국이 확정되면 전달.`schedule` 테이블·API는 이미 있고 **사이트에 표시만 안 됨** (`ScheduleTimeline` 컴포넌트 미사용). 데드라인은 눈에 띄게 |
+| DAEMUN 설명                         | 미착수        | 메인 또는 Guide to MUN 어디든 상관없음                                                                                                                   |
+| Secretariat 직책 배정               | 임시          | 사진·이름만 실제. 실제 배정으로 교체 (패널 생기면 거기서)                                                                                               |
+| Secretariat 인사말(greeting)        | 데이터만 준비 | `people.greeting` 필드와 렌더링은 있으나 값이 비어 있고, 인사말이 보이게 **디자인 재작업** 예정                                                  |
+| Committees 토픽 → chair report PDF | 완료          | `topics.report`에 PDF 경로 넣으면 됨. 9월에 업로드                                                                                                     |
+| 결의안 다운로드 버튼                | 의도적 차단   | approved 전엔 링크 없음. 공개 시점 제어는 6-1 참고                                                                                                       |
 
 ---
 
@@ -186,15 +191,15 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 ## 9. 참고 파일
 
-| 뭘 알고 싶을 때 | 파일 |
-|---|---|
-| 타입·zod 스키마 | `packages/shared/src/schemas.ts` |
-| DB 테이블 | `packages/db/src/schema.ts` |
-| 관리자 라우트 | `apps/api/src/routes/admin.ts`, `lib/crud.ts` |
-| 인증 미들웨어 | `apps/api/src/middleware/auth.ts` |
-| 업로드 | `apps/api/src/routes/uploads.ts` |
-| 환경변수 전체 | `apps/api/src/env.ts`, `.env.example` |
-| web이 API 읽는 법 | `apps/web/src/lib/site.ts` |
-| 공개 페이로드 조립 | `apps/api/src/routes/public.ts` |
+| 뭘 알고 싶을 때    | 파일                                              |
+| ------------------ | ------------------------------------------------- |
+| 타입·zod 스키마   | `packages/shared/src/schemas.ts`                |
+| DB 테이블          | `packages/db/src/schema.ts`                     |
+| 관리자 라우트      | `apps/api/src/routes/admin.ts`, `lib/crud.ts` |
+| 인증 미들웨어      | `apps/api/src/middleware/auth.ts`               |
+| 업로드             | `apps/api/src/routes/uploads.ts`                |
+| 환경변수 전체      | `apps/api/src/env.ts`, `.env.example`         |
+| web이 API 읽는 법  | `apps/web/src/lib/site.ts`                      |
+| 공개 페이로드 조립 | `apps/api/src/routes/public.ts`                 |
 
 curl로 API 확인하는 예시는 README §7에 있다.
