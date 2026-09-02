@@ -1,7 +1,25 @@
 "use client";
 
 import { AnimatePresence, motion, useSpring } from "framer-motion";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+const HOVER_QUERY = "(hover: hover) and (pointer: fine)";
+
+function subscribeToHoverCapability(onChange: () => void) {
+  const mq = window.matchMedia(HOVER_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function getHoverCapability() {
+  return window.matchMedia(HOVER_QUERY).matches;
+}
+
+function getServerHoverCapability() {
+  // SSR: unknown until hydration. null = "not yet determined", matching the
+  // existing render logic below.
+  return null;
+}
 
 /**
  * MemberHoverList — vertical editorial name list with a cursor-following
@@ -24,20 +42,19 @@ export function MemberHoverList({ people }: { people: MemberHoverPerson[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   // null = not yet determined (SSR / pre-hydration): render as hover-capable,
   // since the floating portrait only mounts after this resolves to true.
-  const [canHover, setCanHover] = useState<boolean | null>(null);
+  // matchMedia is an external system, so this reads it via
+  // useSyncExternalStore instead of effect+setState (avoids
+  // react-hooks/set-state-in-effect and stays hydration-safe).
+  const canHover = useSyncExternalStore(
+    subscribeToHoverCapability,
+    getHoverCapability,
+    getServerHoverCapability,
+  );
 
   // Cursor-following springs (skiper6 pattern)
   const x = useSpring(0, SPRING);
   const y = useSpring(0, SPRING);
   const scale = useSpring(0, { mass: 0.1, damping: 10, stiffness: 150 });
-
-  useEffect(() => {
-    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
-    setCanHover(mq.matches);
-    const onChange = (event: MediaQueryListEvent) => setCanHover(event.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const hovered = hoveredIndex === null ? null : people[hoveredIndex];
   const portraitPhoto =

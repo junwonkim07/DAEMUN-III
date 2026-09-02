@@ -9,7 +9,7 @@
 - **커밋 전 `pnpm typecheck`** (루트에서 전체 워크스페이스, 또는 `pnpm --filter <pkg> typecheck`로 범위 좁혀서).
 - `apps/web/AGENTS.md`는 `next dev`가 자동 생성하는 파일이다. 지우지 말 것.
 - **Next.js 16은 학습 데이터의 Next와 다르다.** `middleware.ts` → `src/proxy.ts`(함수명도 `proxy`), `revalidateTag(tag, opts)`는 2번째 인자 필수, 캐시 모델 변경. 작업 전 해당 앱의 `node_modules/next/dist/docs/`를 확인할 것.
-- `main`은 배포 기준 브랜치. 확신 없으면 브랜치 + PR.
+- **Git 워크플로**: `main`에 직접 커밋·push 금지. 항상 기능 브랜치 → PR 생성 → CI(`.github/workflows/ci.yml`: typecheck·lint·build) 통과 확인 → main 기준으로 rebase → merge 순서. CI 안 붙이고 임의로 머지하지 말 것.
 - 줄바꿈은 LF로 고정돼 있다 (`.gitattributes`). Windows에서 `git status`가 레포 전체를 "수정됨"으로 보여주면 `core.autocrlf`를 의심할 것 — 실제 내용 변경이 아닐 가능성이 높다.
 
 ## 저장소 구조
