@@ -35,10 +35,13 @@ export function ThemeReveal({
   highlight,
   className,
   tone = "light",
+  header,
 }: {
   paragraphs: string[];
   highlight?: string;
   className?: string;
+  /** Rendered inside the sticky stage, above the text, so it pins with it. */
+  header?: React.ReactNode;
   /** "dark" = white text on a dark band */
   tone?: "light" | "dark";
 }) {
@@ -62,10 +65,11 @@ export function ThemeReveal({
 
   return (
     <div ref={containerRef} className="relative z-0 h-[300vh]">
-      <div className="sticky top-0 mx-auto flex h-screen max-w-4xl items-center px-5 py-20 sm:px-8">
+      <div className="sticky top-0 flex h-screen w-full flex-col items-center justify-center gap-8 px-5 py-16 sm:px-8 md:gap-12">
+        {header}
         <div
           className={cn(
-            "flex flex-col gap-10 text-2xl leading-[1.35] tracking-tight md:text-3xl lg:text-4xl",
+            "mx-auto flex w-full max-w-4xl flex-col gap-6 text-lg leading-[1.4] tracking-tight md:gap-8 md:text-2xl lg:text-[28px]",
             className,
           )}
         >

@@ -131,26 +131,27 @@ export function HeroSiena({
             </div>
           </div>
 
-          <div className="relative flex w-full flex-col items-center pt-16 uppercase sm:pt-20">
-            <p className="font-roman md:text-md mb-8 text-sm uppercase tracking-widest text-gold-soft">
-              Theme of DAEMUN III
-            </p>
-            <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-              From
-            </h1>
-            <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-              Vulnerability
-            </h1>
-            <h1 className="font-custom w-full border-b border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-              to Voice
-            </h1>
-          </div>
-
           <div className="relative">
             <ThemeReveal
               paragraphs={[conference.themeLead, conference.themeBody]}
               highlight="From Vulnerability to Voice"
               tone="dark"
+              header={
+                <div className="flex w-full flex-col items-center uppercase">
+                  <p className="font-roman md:text-md mb-5 text-sm uppercase tracking-widest text-gold-soft">
+                    Theme of DAEMUN III
+                  </p>
+                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                    From
+                  </h1>
+                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                    Vulnerability
+                  </h1>
+                  <h1 className="font-custom w-full border-b border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                    to Voice
+                  </h1>
+                </div>
+              }
             />
           </div>
         </section>
