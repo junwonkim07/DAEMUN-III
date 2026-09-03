@@ -27,11 +27,11 @@ export function ScheduleTimeline({ schedule }: { schedule: ScheduleDay[] }) {
               key={current.day}
               initial={{ x: -6, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              className="inline-block text-[22px] leading-none tracking-[-0.01em] text-ink sm:text-[26px]"
+              className="inline-block text-[30px] leading-none tracking-[-0.01em] text-ink sm:text-[38px]"
             >
               {current.day}
             </motion.span>
-            <span className="text-[13px] text-muted sm:text-[14px]">
+            <span className="text-[15px] text-muted sm:text-[17px]">
               <TBA value={current.date} />
             </span>
           </div>
@@ -70,8 +70,8 @@ function DaySection({
   return (
     <section ref={sectionRef} className="py-10 sm:py-12">
       <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line pb-2">
-        <h3 className="text-[16px] text-ink">{data.day}</h3>
-        <span className="text-[13px] text-muted">
+        <h3 className="text-[20px] text-ink sm:text-[22px]">{data.day}</h3>
+        <span className="text-[15px] text-muted sm:text-[16px]">
           <TBA value={data.date} />
         </span>
       </header>
@@ -80,16 +80,16 @@ function DaySection({
         {data.items.map((item, index) => (
           <li
             key={index}
-            className="flex items-start gap-3 border-b border-line py-3.5 last:border-b-0 sm:gap-5"
+            className="flex items-start gap-4 border-b border-line py-5 last:border-b-0 sm:gap-6"
           >
             <span
               aria-hidden
-              className="mt-[7px] size-2 shrink-0 rounded-full border border-line bg-wash"
+              className="mt-[11px] size-2.5 shrink-0 rounded-full border border-line bg-wash"
             />
-            <span className="w-[92px] shrink-0 text-[13px] leading-6 text-muted tabular-nums sm:w-28">
+            <span className="w-[104px] shrink-0 text-[16px] leading-8 text-muted tabular-nums sm:w-36 sm:text-[17px]">
               <TBA value={item.time} />
             </span>
-            <span className="min-w-0 text-[15px] leading-6 text-body">{item.event}</span>
+            <span className="min-w-0 text-[19px] leading-8 text-body sm:text-[21px]">{item.event}</span>
           </li>
         ))}
       </ul>

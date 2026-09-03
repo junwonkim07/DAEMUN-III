@@ -116,6 +116,13 @@ const departments: SiteData["secretariat"]["departments"] = [
         photo: "/profiles/mun-jeongyeon.jpg",
         departmentId: "media",
         sortOrder: 1,
+        greeting: g(
+          "Welcome to DAEMUN III!",
+          "My name is Jeongyeon Moon, a senior at Qingdao Daewon School. It is a great honor to be part of the DAEMUN III Media Team this year.",
+          "Our job is to capture the conference from behind the camera, from the Opening Ceremony and interviews to the exciting moments throughout DAEMUN III. We will take photos, film videos, and create highlights that capture the atmosphere of this year’s conference.",
+          "For me, the best part of media is turning brief moments into memories that can be kept and shared. I hope our videos will remind everyone of the excitement, friendships, and unforgettable experiences created here.",
+          "I look forward to seeing you at DAEMUN III. Thank you!",
+        ),
       }),
     ],
   },
@@ -161,11 +168,17 @@ const departments: SiteData["secretariat"]["departments"] = [
         photo: "/profiles/park-jihun.jpg",
         departmentId: "administration",
         sortOrder: 1,
+        greeting: g(
+          "Jihun supports the Administration Team with delegate registration and check-in, keeping the committee rooms supplied, and handling the day-to-day logistics that keep DAEMUN III running on time.",
+        ),
       }),
       p("lee-seungwoo", "Seungwoo Lee", "Deputy Head of Administration", "department", {
         photo: "/profiles/lee-seungwoo.jpg",
         departmentId: "administration",
         sortOrder: 2,
+        greeting: g(
+          "Seungwoo helps coordinate the conference schedule and venue setup, and is the point of contact for delegates who need directions, materials, or assistance during DAEMUN III.",
+        ),
       }),
     ],
   },
