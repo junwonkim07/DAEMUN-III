@@ -192,6 +192,10 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  // delegate profile (collected by the sign-up onboarding on the public site)
+  grade: text("grade"),
+  committee: text("committee"),
+  munExperience: text("mun_experience"),
 });
 
 export const session = pgTable("session", {

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_SC } from "next/font/google";
 import "./globals.css";
-import { AppleNav } from "@/components/site/apple-nav";
-import { SiteFooter } from "@/components/site/footer";
 import { getSite } from "@/lib/site";
 
 /**
@@ -30,16 +28,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { conference } = await getSite();
-
+/**
+ * Bare document shell. Page chrome lives in the route groups:
+ *   (site) — navbar + footer (every public page)
+ *   (auth) — none (sign-in / sign-up / onboarding screens)
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${cormorantSC.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
-        <AppleNav />
-        <main className="flex-1 pt-12">{children}</main>
-        <SiteFooter conference={conference} />
-      </body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

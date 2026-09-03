@@ -21,8 +21,17 @@ export const env = {
 
   /** Public origin of the admin panel — auth cookies live there. */
   adminUrl,
-  /** Public origin of the delegate-facing site. */
+  /**
+   * Where the API reaches the web app (revalidate webhook). Inside Docker
+   * Compose this is the service name, so it is *not* a browser-facing URL.
+   */
   webUrl: process.env.WEB_URL ?? "http://localhost:3000",
+  /**
+   * Public origin of the delegate-facing site as seen by browsers. Used for
+   * trustedOrigins (the site proxies /api/auth to us) and for the links in
+   * verification / password-reset emails.
+   */
+  webPublicUrl: process.env.WEB_PUBLIC_URL ?? "http://localhost:3000",
 
   authSecret: required(
     "BETTER_AUTH_SECRET",
@@ -30,6 +39,15 @@ export const env = {
   ),
   /** Shared secret for the web app's /api/revalidate webhook. */
   revalidateSecret: process.env.REVALIDATE_SECRET ?? "",
+
+  /** Outgoing mail. Unset SMTP_HOST -> links are logged to the console instead. */
+  smtp: {
+    host: process.env.SMTP_HOST ?? "",
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user: process.env.SMTP_USER ?? "",
+    pass: process.env.SMTP_PASS ?? "",
+    from: process.env.MAIL_FROM ?? "DAEMUN III <no-reply@daemun.local>",
+  },
 
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 25) * 1024 * 1024,

@@ -13,8 +13,16 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@daemun/shared"],
   // Files uploaded through the admin API live on the API server; proxy them
   // so the public site can reference them as same-origin paths.
+  //
+  // /api/auth/* is proxied too so better-auth's session cookie is a
+  // first-party cookie of this site (same trick as the admin panel — see
+  // handover.md §3). Rewrites are fixed at build time, so API_URL is a build
+  // ARG in Docker. /api/revalidate is a local route and is not affected.
   async rewrites() {
-    return [{ source: "/uploads/:path*", destination: `${API_URL}/uploads/:path*` }];
+    return [
+      { source: "/uploads/:path*", destination: `${API_URL}/uploads/:path*` },
+      { source: "/api/auth/:path*", destination: `${API_URL}/api/auth/:path*` },
+    ];
   },
 };
 

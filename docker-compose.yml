@@ -39,6 +39,15 @@ services:
       # Origin the admin frontend is served from (better-auth baseURL + trustedOrigins)
       ADMIN_URL: ${ADMIN_URL:?set ADMIN_URL in .env}
       WEB_URL: http://web:3000
+      # Browser-facing origin of the public site (trustedOrigins + links in
+      # verification / password-reset emails). Must match WEB_DOMAIN.
+      WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-http://104.36.69.86}
+      # Outgoing mail for delegate sign-up. Leave SMTP_HOST empty to log links instead.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-DAEMUN III <no-reply@daemun.local>}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set REVALIDATE_SECRET in .env}
       UPLOAD_DIR: /data/uploads
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
