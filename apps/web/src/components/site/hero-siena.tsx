@@ -16,6 +16,9 @@ import type { Conference, ScheduleDayWithItems } from "@daemun/shared";
 
 const cormorantSC = Cormorant_SC({ weight: "600", subsets: ["latin"] });
 
+/** TODO: point at the DAEMUN video channel / playlist once it exists. */
+const MORE_VIDEOS_URL = "#";
+
 export function HeroSiena({
   conference,
   schedule,
@@ -117,6 +120,21 @@ export function HeroSiena({
             />
           )}
         </motion.div>
+
+        {/* ---- More videos ---- */}
+        <div className="mt-6 flex w-full justify-end px-5 sm:px-8 lg:w-[80%] lg:px-0">
+          <a
+            href={MORE_VIDEOS_URL}
+            className="group inline-flex items-center gap-3 border-b border-black/20 py-2 transition-colors hover:border-black"
+          >
+            <span className="font-roman md:text-md text-sm uppercase tracking-widest">
+              Watch more videos
+            </span>
+            <span className="flex size-7 items-center justify-center rounded-full bg-black p-1.5 text-white transition-transform group-hover:translate-x-1">
+              <ArrowWeired className="-rotate-90" />
+            </span>
+          </a>
+        </div>
 
         {/* ---- Theme: dark photo band (same treatment as the committee intro) ---- */}
         <section id="theme" className="relative mt-32 w-full bg-navy text-white">
