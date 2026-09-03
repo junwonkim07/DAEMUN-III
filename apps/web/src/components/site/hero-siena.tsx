@@ -10,6 +10,7 @@ import Link from "next/link";
 import React, { useRef, useState } from "react";
 
 import { VideoPlayer } from "@/components/site/intro-video";
+import { ThemeReveal } from "@/components/site/theme-reveal";
 import type { Conference } from "@daemun/shared";
 
 const cormorantSC = Cormorant_SC({ weight: "600", subsets: ["latin"] });
@@ -35,7 +36,7 @@ export function HeroSiena({ conference }: { conference: Conference }) {
 
   return (
     <ReactLenis root>
-      <div className="flex w-full flex-col items-center overflow-hidden bg-white text-black">
+      <div className="flex w-full flex-col items-center overflow-x-clip bg-white text-black">
         {/* ---- Parallax hero image ---- */}
         <div
           ref={gallery}
@@ -122,6 +123,12 @@ export function HeroSiena({ conference }: { conference: Conference }) {
             to Voice
           </h1>
         </div>
+
+        {/* ---- Theme statement, revealed word by word (skiper70) ---- */}
+        <ThemeReveal
+          paragraphs={[conference.themeLead, conference.themeBody]}
+          highlight="From Vulnerability to Voice"
+        />
 
         {/* ---- Sitemap ---- */}
         <div className="my-42 flex flex-col items-center justify-center uppercase">
