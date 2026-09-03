@@ -45,7 +45,11 @@ export function ThemeReveal({
   const allWords = lines.flat();
   const highlighted = phraseIndices(allWords, highlight);
 
-  let offset = 0;
+  // Global index of each line's first word (computed up front so nothing is
+  // reassigned during render — react-hooks/immutability).
+  const lineStarts = lines.map((_, i) =>
+    lines.slice(0, i).reduce((sum, words) => sum + words.length, 0),
+  );
   return (
     <div ref={ref} className="mx-auto w-full max-w-4xl px-5 py-24 sm:px-8 md:py-32">
       <div
@@ -55,8 +59,7 @@ export function ThemeReveal({
         )}
       >
         {lines.map((words, li) => {
-          const start = offset;
-          offset += words.length;
+          const start = lineStarts[li];
           return (
             <p key={li} className="flex flex-wrap">
               {words.map((word, wi) => (
