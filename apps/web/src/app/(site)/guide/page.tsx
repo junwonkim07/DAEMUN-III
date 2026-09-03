@@ -1,6 +1,5 @@
 import { AnimeScrollbar } from "@/components/site/anime-scrollbar";
 import { DocsPage, type DocsSection } from "@/components/site/docs-page";
-import { PastVideos } from "@/components/site/past-videos";
 import { PageHero } from "@/components/site/section";
 
 import Committees from "@/content/guide/committees.mdx";
@@ -19,7 +18,6 @@ const sections: DocsSection[] = [
   { id: "rop", title: "How a session runs", content: <Rop /> },
   { id: "clauses", title: "Writing a resolution", content: <Clauses /> },
   { id: "downloads", title: "Documents", content: <Documents /> },
-  { id: "videos", title: "Watch past MUN videos", content: <PastVideos /> },
 ];
 
 export default function GuidePage() {

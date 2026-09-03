@@ -16,8 +16,8 @@ import type { Conference, ScheduleDayWithItems } from "@daemun/shared";
 
 const cormorantSC = Cormorant_SC({ weight: "600", subsets: ["latin"] });
 
-/** Past conference films live on the Guide page. */
-const MORE_VIDEOS_URL = "/guide#videos";
+/** Past conference films live on the About page. */
+const MORE_VIDEOS_URL = "/about#videos";
 
 export function HeroSiena({
   conference,
@@ -198,6 +198,7 @@ export function HeroSiena({
             sitemap
           </p>
           {[
+            { label: "About", href: "/about" },
             { label: "Secretariat", href: "/secretariat" },
             { label: "Committees", href: "/committees" },
             { label: "Resolutions", href: "/resolutions" },

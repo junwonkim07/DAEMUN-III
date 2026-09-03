@@ -17,6 +17,7 @@ type MenuColumn = { title: string; items: MenuLink[] };
 type MenuContent = { firstUl: MenuColumn; secondUl: MenuColumn };
 
 const NAV_ITEMS: { label: string; href: string }[] = [
+  { label: "About", href: "/about" },
   { label: "Secretariat", href: "/secretariat" },
   { label: "Committees", href: "/committees" },
   { label: "Resolutions", href: "/resolutions" },
@@ -26,6 +27,22 @@ const NAV_ITEMS: { label: string; href: string }[] = [
 ];
 
 const MENU_CONTENT: Record<string, MenuContent> = {
+  About: {
+    firstUl: {
+      title: "DAEMUN",
+      items: [
+        { label: "About DAEMUN", href: "/about" },
+        { label: "Past MUN Videos", href: "/about#videos" },
+      ],
+    },
+    secondUl: {
+      title: "This year",
+      items: [
+        { label: "Theme", href: "/#theme" },
+        { label: "Schedule", href: "/#schedule" },
+      ],
+    },
+  },
   Secretariat: {
     firstUl: {
       title: "Leadership",
@@ -86,7 +103,6 @@ const MENU_CONTENT: Record<string, MenuContent> = {
         { label: "Rules of Procedure", href: "/guide#rop" },
         { label: "Writing a Resolution", href: "/guide#clauses" },
         { label: "Documents", href: "/guide#downloads" },
-        { label: "Past MUN Videos", href: "/guide#videos" },
       ],
     },
     secondUl: {

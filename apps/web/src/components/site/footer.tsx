@@ -26,6 +26,7 @@ function InstagramIcon({ size = 15 }: { size?: number }) {
 
 const SITEMAP = [
   { label: "Home", href: "/" },
+  { label: "About", href: "/about" },
   { label: "Secretariat", href: "/secretariat" },
   { label: "Committees", href: "/committees" },
   { label: "Resolutions", href: "/resolutions" },
