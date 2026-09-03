@@ -169,7 +169,7 @@ const departments: SiteData["secretariat"]["departments"] = [
         departmentId: "administration",
         sortOrder: 1,
         greeting: g(
-          "Jihun supports the Administration Team with delegate registration and check-in, keeping the committee rooms supplied, and handling the day-to-day logistics that keep DAEMUN III running on time.",
+          "I support the Administration Team with delegate registration and check-in, keeping the committee rooms supplied, and handling the day-to-day logistics that keep DAEMUN III running on time.",
         ),
       }),
       p("lee-seungwoo", "Seungwoo Lee", "Deputy Head of Administration", "department", {
@@ -177,7 +177,7 @@ const departments: SiteData["secretariat"]["departments"] = [
         departmentId: "administration",
         sortOrder: 2,
         greeting: g(
-          "Seungwoo helps coordinate the conference schedule and venue setup, and is the point of contact for delegates who need directions, materials, or assistance during DAEMUN III.",
+          "I help coordinate the conference schedule and venue setup, and I am the point of contact for delegates who need directions, materials, or assistance during DAEMUN III.",
         ),
       }),
     ],
