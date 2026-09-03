@@ -118,24 +118,38 @@ export function HeroSiena({
           )}
         </motion.div>
 
-        {/* ---- Theme, stacked ---- */}
-        <div className="mt-32 flex w-full flex-col items-center justify-center uppercase">
-          <h1 className="font-custom w-full border-t py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-            From
-          </h1>
-          <h1 className="font-custom w-full border-t py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-            Vulnerability
-          </h1>
-          <h1 className="font-custom w-full border-b border-t py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
-            to Voice
-          </h1>
-        </div>
+        {/* ---- Theme: dark photo band (same treatment as the committee intro) ---- */}
+        <section id="theme" className="relative mt-32 w-full overflow-hidden bg-navy text-white">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url(/theme-bg.jpg)" }}
+            aria-hidden
+          />
+          <div className="absolute inset-0 bg-navy/80" aria-hidden />
 
-        {/* ---- Theme statement, revealed word by word (skiper70) ---- */}
-        <ThemeReveal
-          paragraphs={[conference.themeLead, conference.themeBody]}
-          highlight="From Vulnerability to Voice"
-        />
+          <div className="relative flex w-full flex-col items-center pt-16 uppercase sm:pt-20">
+            <p className="font-roman md:text-md mb-8 text-sm uppercase tracking-widest text-gold-soft">
+              Theme of DAEMUN III
+            </p>
+            <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
+              From
+            </h1>
+            <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
+              Vulnerability
+            </h1>
+            <h1 className="font-custom w-full border-b border-t border-white/30 py-1 text-center text-5xl lg:text-8xl" style={{ lineHeight: 1 }}>
+              to Voice
+            </h1>
+          </div>
+
+          <div className="relative">
+            <ThemeReveal
+              paragraphs={[conference.themeLead, conference.themeBody]}
+              highlight="From Vulnerability to Voice"
+              tone="dark"
+            />
+          </div>
+        </section>
 
         {/* ---- Conference schedule ---- */}
         {schedule.length > 0 ? (

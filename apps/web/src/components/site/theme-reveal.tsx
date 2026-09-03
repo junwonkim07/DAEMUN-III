@@ -33,10 +33,13 @@ export function ThemeReveal({
   paragraphs,
   highlight,
   className,
+  tone = "light",
 }: {
   paragraphs: string[];
   highlight?: string;
   className?: string;
+  /** "dark" = white text on a dark band */
+  tone?: "light" | "dark";
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "0px 0px -20% 0px" });
@@ -68,6 +71,7 @@ export function ThemeReveal({
                   play={inView}
                   delay={(start + wi) * STEP}
                   highlighted={highlighted.has(start + wi)}
+                  dark={tone === "dark"}
                 >
                   {word}
                 </AnimatedWord>
@@ -85,15 +89,17 @@ function AnimatedWord({
   play,
   delay,
   highlighted,
+  dark,
 }: {
   children: React.ReactNode;
   play: boolean;
   delay: number;
   highlighted: boolean;
+  dark: boolean;
 }) {
   return (
     <motion.span
-      className={cn("relative mx-1 inline-block text-ink lg:mx-1.5", highlighted && "text-gold")}
+      className={cn("relative mx-1 inline-block lg:mx-1.5", dark ? "text-white" : "text-ink", highlighted && (dark ? "text-gold-soft" : "text-gold"))}
       initial={{ opacity: 0 }}
       animate={play ? { opacity: 1 } : { opacity: 0 }}
       transition={{ duration: WORD * 0.5, delay, ease: "easeOut" }}
@@ -101,8 +107,9 @@ function AnimatedWord({
       <motion.span
         aria-hidden
         className={cn(
-          "absolute left-1/2 top-1/2 h-[80%] w-[105%] -translate-x-1/2 -translate-y-1/2 rounded-md bg-ink",
-          highlighted && "bg-gold",
+          "absolute left-1/2 top-1/2 h-[80%] w-[105%] -translate-x-1/2 -translate-y-1/2 rounded-md",
+          dark ? "bg-white/90" : "bg-ink",
+          highlighted && (dark ? "bg-gold-soft" : "bg-gold"),
         )}
         initial={{ opacity: 1 }}
         animate={play ? { opacity: 0 } : { opacity: 1 }}
