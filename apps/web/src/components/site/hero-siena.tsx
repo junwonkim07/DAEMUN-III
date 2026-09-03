@@ -10,12 +10,19 @@ import Link from "next/link";
 import React, { useRef, useState } from "react";
 
 import { VideoPlayer } from "@/components/site/intro-video";
+import { ScheduleTimeline } from "@/components/site/schedule-timeline";
 import { ThemeReveal } from "@/components/site/theme-reveal";
-import type { Conference } from "@daemun/shared";
+import type { Conference, ScheduleDayWithItems } from "@daemun/shared";
 
 const cormorantSC = Cormorant_SC({ weight: "600", subsets: ["latin"] });
 
-export function HeroSiena({ conference }: { conference: Conference }) {
+export function HeroSiena({
+  conference,
+  schedule,
+}: {
+  conference: Conference;
+  schedule: ScheduleDayWithItems[];
+}) {
   const gallery = useRef(null);
   const gallery2 = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -129,6 +136,24 @@ export function HeroSiena({ conference }: { conference: Conference }) {
           paragraphs={[conference.themeLead, conference.themeBody]}
           highlight="From Vulnerability to Voice"
         />
+
+        {/* ---- Conference schedule ---- */}
+        {schedule.length > 0 ? (
+          <section id="schedule" className="w-full scroll-mt-16">
+            <p className="font-roman md:text-md my-10 text-center text-sm uppercase tracking-widest">
+              Conference schedule
+            </p>
+            <h2
+              className="font-custom w-full border-b border-t py-1 text-center text-5xl uppercase lg:text-8xl"
+              style={{ lineHeight: 1 }}
+            >
+              Schedule
+            </h2>
+            <div className="mx-auto max-w-3xl px-5 pb-8 pt-14 sm:px-8 [&_header]:top-12">
+              <ScheduleTimeline schedule={schedule} />
+            </div>
+          </section>
+        ) : null}
 
         {/* ---- Sitemap ---- */}
         <div className="my-42 flex flex-col items-center justify-center uppercase">
