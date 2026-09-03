@@ -14,8 +14,18 @@ import {
 } from "@daemun/db";
 import { db } from "../db";
 
+type BuildOptions = {
+  /**
+   * 공개 사이트용 페이로드인지. true면 승인되지 않은 결의안의 `document`
+   * (업로드된 PDF 경로)를 응답에서 제외한다 — 리뷰 전 초안이 공개 JSON으로
+   * 새는 것을 막는다. 어드민 프리뷰(`GET /api/admin/site`)는 false로 둬서
+   * 모든 상태의 문서를 그대로 본다.
+   */
+  publicView?: boolean;
+};
+
 /** Assemble the single payload the public site renders from. */
-export async function buildSiteData(): Promise<SiteData> {
+export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> {
   const [confRow] = await db
     .select()
     .from(conference)
@@ -68,7 +78,12 @@ export async function buildSiteData(): Promise<SiteData> {
     const slug = slugById.get(r.committeeId);
     if (!slug) continue;
     const { createdAt: _c, ...rest } = r;
-    resolutionsBySlug[slug]!.push({ ...rest, updatedAt: r.updatedAt.toISOString() });
+    const hideDocument = opts.publicView && r.status !== "approved";
+    resolutionsBySlug[slug]!.push({
+      ...rest,
+      document: hideDocument ? null : r.document,
+      updatedAt: r.updatedAt.toISOString(),
+    });
   }
 
   const { id: _id, createdAt: _c, updatedAt: _u, ...conf } = confRow ?? {
@@ -103,7 +118,7 @@ export async function buildSiteData(): Promise<SiteData> {
 }
 
 export const publicRoutes = new Hono().get("/site", async (c) => {
-  const data = await buildSiteData();
+  const data = await buildSiteData({ publicView: true });
   c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
   return c.json(data);
 });
