@@ -16,8 +16,8 @@ import type { Conference, ScheduleDayWithItems } from "@daemun/shared";
 
 const cormorantSC = Cormorant_SC({ weight: "600", subsets: ["latin"] });
 
-/** TODO: point at the DAEMUN video channel / playlist once it exists. */
-const MORE_VIDEOS_URL = "#";
+/** Past conference films live on the Guide page. */
+const MORE_VIDEOS_URL = "/guide#videos";
 
 export function HeroSiena({
   conference,
