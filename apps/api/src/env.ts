@@ -52,11 +52,14 @@ export const env = {
   /**
    * 안내 챗봇(POST /api/chat)이 쓰는 Gemini API. GEMINI_API_KEY가 없으면
    * 엔드포인트는 503과 안내 문구를 돌려준다 — 키 없이도 나머지는 동작.
-   * 무료 키: https://aistudio.google.com/apikey (Flash-Lite 15 RPM / 1,000 req/day)
+   * 무료 키: https://aistudio.google.com/apikey
+   *
+   * 모델 기본값은 버전 없는 별칭 `gemini-flash-lite-latest` — 구글이 구버전을
+   * "신규 사용자 사용 불가"로 막아도 안 깨지게. 특정 버전 고정은 GEMINI_MODEL로.
    */
   gemini: {
     apiKey: process.env.GEMINI_API_KEY ?? "",
-    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite",
+    model: process.env.GEMINI_MODEL ?? "gemini-flash-lite-latest",
   },
 
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),

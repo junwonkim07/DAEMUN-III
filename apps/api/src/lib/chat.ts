@@ -88,7 +88,7 @@ function toGeminiContents(messages: ChatMessage[]) {
 
 type GeminiResponse = {
   candidates?: {
-    content?: { parts?: { text?: string }[] };
+    content?: { parts?: { text?: string; thought?: boolean }[] };
     finishReason?: string;
   }[];
   promptFeedback?: { blockReason?: string };
@@ -136,8 +136,10 @@ export async function generateReply(
   if (data.promptFeedback?.blockReason) {
     throw new ChatUpstreamError(`blocked: ${data.promptFeedback.blockReason}`);
   }
+  // 3.x 모델은 사고(thought) 파트를 함께 내려줄 수 있다 — 표시용 텍스트만.
   const text = data.candidates?.[0]?.content?.parts
-    ?.map((p) => p.text ?? "")
+    ?.filter((p) => !p.thought)
+    .map((p) => p.text ?? "")
     .join("")
     .trim();
   if (!text) throw new ChatUpstreamError("empty completion");
