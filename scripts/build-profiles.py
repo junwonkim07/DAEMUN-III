@@ -28,11 +28,12 @@ ROMAN = {
     "최보윤": "choi-boyun",
     "허예지": "heo-yeji",
     "현재희": "hyun-jaehee",
+    "mrTED": "ted-kim",
 }
 
 os.makedirs(OUT, exist_ok=True)
 total = 0
-for path in sorted(glob.glob(f"{SRC}/*.jpg")):
+for path in sorted(glob.glob(f"{SRC}/*.jpg") + glob.glob(f"{SRC}/*.png")):
     stem = unicodedata.normalize("NFC", os.path.splitext(os.path.basename(path))[0])
     slug = ROMAN.get(stem)
     if not slug:

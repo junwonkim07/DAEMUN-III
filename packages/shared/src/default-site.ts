@@ -33,7 +33,9 @@ const p = (
 /** Joins paragraphs into one greeting; rendered as separate <p> elements. */
 const g = (...paragraphs: string[]) => paragraphs.join("\n\n");
 
-const director = p("ted-kim", "Ted Kim", "Director", "director");
+const director = p("ted-kim", "Ted Kim", "Director", "director", {
+  photo: "/profiles/ted-kim.jpg",
+});
 
 const executives: Person[] = [
   p("lee-suhyeon", "Suhyeon Lee", "Secretary-General", "executive", {
