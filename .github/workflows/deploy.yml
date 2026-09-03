@@ -36,8 +36,12 @@ jobs:
             git reset --hard origin/main
             # 1 GB RAM: build images one at a time instead of in parallel
             COMPOSE_PARALLEL_LIMIT=1 docker compose up -d --build --remove-orphans
+            # Keep the box from filling up: drop dangling images and cap the
+            # BuildKit cache (19 GB disk; the cache grew to 5 GB in two days).
             docker image prune -f >/dev/null
+            docker builder prune -f --keep-storage 1500m >/dev/null
             docker compose ps
+            df -h / | tail -1
           REMOTE
 
       - name: Health check
