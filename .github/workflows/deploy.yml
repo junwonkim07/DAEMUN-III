@@ -34,7 +34,8 @@ jobs:
             cd /opt/daemun
             git fetch --prune origin main
             git reset --hard origin/main
-            docker compose up -d --build --remove-orphans
+            # 1 GB RAM: build images one at a time instead of in parallel
+            COMPOSE_PARALLEL_LIMIT=1 docker compose up -d --build --remove-orphans
             docker image prune -f >/dev/null
             docker compose ps
           REMOTE

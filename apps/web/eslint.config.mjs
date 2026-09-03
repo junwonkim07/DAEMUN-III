@@ -12,8 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Vendored, licensed UI kit (skiper-ui) — not our code, not our lint rules.
-    "src/components/ui/skiper-ui/**",
   ]),
 ]);
 

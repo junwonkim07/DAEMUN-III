@@ -9,6 +9,16 @@
 	}
 }
 
+{$ADMIN_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 30MB
+	}
+	# admin's own Next.js rewrites forward /api/* and /uploads/* to the API,
+	# so everything can go to the admin container.
+	reverse_proxy admin:3001
+}
+
 {$API_DOMAIN} {
 	encode zstd gzip
 	request_body {

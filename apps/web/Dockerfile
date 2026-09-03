@@ -17,7 +17,10 @@ COPY --from=deps /repo/packages/shared/node_modules ./packages/shared/node_modul
 COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
-# API_URL is read at runtime (rewrites + fetch), not baked in
+# Rewrites are evaluated at build time, so the /uploads proxy target must be
+# known here. fetch() in lib/site.ts still reads API_URL at runtime.
+ARG API_URL=http://api:4000
+ENV API_URL=$API_URL
 RUN pnpm --filter @daemun/web build
 
 FROM node:22-alpine AS runner

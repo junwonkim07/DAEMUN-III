@@ -10,12 +10,13 @@ export default function DashboardPage() {
   const { data: session, isPending, error } = useSession();
 
   useEffect(() => {
-    // 세션 없음(401) — proxy.ts가 대부분 걸러주지만, 쿠키만 있고 세션이
-    // 서버에서 이미 만료/밴 처리된 경우를 위한 2차 방어선.
-    if (!isPending && !session) {
+    // 세션 없음 — proxy.ts가 대부분 걸러주지만, 쿠키만 있고 세션이 서버에서
+    // 이미 만료/밴 처리된 경우를 위한 2차 방어선. 네트워크/서버 오류(error)는
+    // 세션 부재가 아니므로 리다이렉트하지 않고 아래에서 메시지를 보여준다.
+    if (!isPending && !error && !session) {
       router.replace("/login");
     }
-  }, [isPending, session, router]);
+  }, [isPending, error, session, router]);
 
   if (isPending) {
     return <p className="p-6 text-sm text-neutral-500">불러오는 중...</p>;
@@ -39,7 +40,7 @@ export default function DashboardPage() {
         </button>
       </div>
       <p className="mt-4 text-sm text-neutral-600">
-        {session.user.email}로 로그인됨 (role: {session.user.role ?? "admin"})
+        {session.user.email}로 로그인됨 (role: {session.user.role ?? "없음"})
       </p>
       <p className="mt-8 text-sm text-neutral-400">
         화면 스캐폴딩은 여기까지. 다음: 결의안 현황판, 사무국 CRUD 등

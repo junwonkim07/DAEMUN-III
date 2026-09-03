@@ -4,17 +4,24 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      # pnpm must be on PATH before setup-node so its store cache can be used
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - run: corepack enable
+          cache: pnpm
 
       - run: pnpm install --frozen-lockfile
 

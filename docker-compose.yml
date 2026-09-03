@@ -3,8 +3,9 @@
 #   docker compose up -d --build
 #
 # Caddy terminates TLS and routes:
-#   https://$WEB_DOMAIN        → web   (public site)
-#   https://$API_DOMAIN        → api   (auth, admin CRUD, uploads — for the admin frontend)
+#   $WEB_DOMAIN    → web    (public site)
+#   $ADMIN_DOMAIN  → admin  (admin panel; proxies /api and /uploads to api itself)
+#   $API_DOMAIN    → api    (direct API access, e.g. for scripts)
 
 services:
   postgres:
@@ -55,6 +56,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        API_URL: http://api:4000 # rewrites are fixed at build time
     restart: unless-stopped
     depends_on:
       api:
@@ -64,6 +67,19 @@ services:
       API_URL: http://api:4000
       REVALIDATE_SECRET: ${REVALIDATE_SECRET}
 
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        API_URL: http://api:4000 # rewrites are fixed at build time
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -71,12 +87,15 @@ services:
       - "80:80"
       - "443:443"
       - "8080:8080" # API when running on a bare IP (API_DOMAIN=http://<ip>:8080)
+      - "8081:8081" # admin when running on a bare IP (ADMIN_DOMAIN=http://<ip>:8081)
     environment:
       WEB_DOMAIN: ${WEB_DOMAIN:?set WEB_DOMAIN in .env}
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?set ADMIN_DOMAIN in .env}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data
     depends_on:
       - web
+      - admin
       - api

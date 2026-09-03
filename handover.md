@@ -13,6 +13,7 @@
 |---|---|
 | 서버 | VPS `104.36.69.86` (Debian 13, 2 vCPU, RAM 1GB + swap 3.6GB). SSH는 김준원의 키로만 접속 |
 | 사이트 | http://104.36.69.86 |
+| 어드민 패널 | http://104.36.69.86:8081 (`apps/admin`, compose 서비스 `admin`) |
 | API | http://104.36.69.86:8080 — `GET /health`, `GET /api/public/site` 로 확인 |
 | 스택 | `/opt/daemun`에 클론된 이 저장소 + `docker-compose.yml` (postgres, api, web, caddy). 데이터는 `/opt/daemun/data/` |
 | 배포 | **main에 머지되면 GitHub Actions가 자동 배포** (`.github/workflows/deploy.yml`). 이미지 빌드가 서버에서 돌기 때문에 3분 정도 걸리고, 그동안 서버가 잠깐 느려질 수 있다 |
@@ -21,8 +22,9 @@
 
 **어드민 패널 개발자에게 특히 중요한 것:**
 
-- 서버 `.env`의 `ADMIN_URL`은 지금 **`http://104.36.69.86:8080`(API 자기 자신)** 으로 되어 있다. 패널이 배포되면 이 값을 **패널의 origin**으로 바꿔야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
-- 패널을 같은 서버에 올릴 계획이면 `docker-compose.yml`에 `admin` 서비스와 `deploy/Caddyfile`에 사이트 하나를 추가하면 된다. 그러면 기존 워크플로우가 그대로 같이 배포한다. 다만 RAM 1GB라 Next 앱 두 개를 동시에 빌드하면 빡빡하다 — 문제 되면 GitHub Actions에서 이미지를 빌드해 서버는 pull만 하도록 바꾸는 게 다음 단계.
+- 서버 `.env`의 `ADMIN_URL`은 **패널의 origin**(`ADMIN_DOMAIN`과 같은 값, 지금은 `http://104.36.69.86:8081`)이어야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
+- **Next.js rewrites는 빌드 시점에 고정된다.** `apps/admin/next.config.ts`의 `API_URL`은 런타임 env가 아니라 build ARG다 (`apps/admin/Dockerfile`, `docker-compose.yml`의 `build.args`). 로컬에서는 기본값 `http://localhost:4000`.
+- 패널은 `docker-compose.yml`의 `admin` 서비스로 web·api와 같이 배포된다 (`deploy/Caddyfile`의 `ADMIN_DOMAIN` 사이트). RAM 1GB라 배포 워크플로우는 이미지를 하나씩 순서대로 빌드한다(`COMPOSE_PARALLEL_LIMIT=1`) — 배포에 5분 안팎 걸린다. 문제 되면 GitHub Actions에서 이미지를 빌드해 서버는 pull만 하도록 바꾸는 게 다음 단계.
 - 프로덕션 DB는 이미 실제 사무국 명단·인사말로 채워져 있다. `packages/shared/src/default-site.ts`는 더 이상 진실이 아니고, 콘텐츠의 진실은 DB다.
 
 ---
@@ -80,7 +82,7 @@ REVALIDATE_SECRET=dev
    ```
 
    그러면 패널 코드에서는 그냥 `fetch("/api/admin/...")`.
-2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 배포 시 서버 `.env`의 `ADMIN_URL`을 패널 origin(예: `https://admin.<도메인>`)으로 바꾼다. 지금은 API 자기 자신(`http://104.36.69.86:8080`)을 가리킨다.
+2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 프로덕션은 서버 `.env`의 `ADMIN_DOMAIN`과 같은 값(지금 `http://104.36.69.86:8081`, 도메인 생기면 `https://admin.<도메인>`).
 3. **클라이언트는 `better-auth/react`를 쓴다.**
 
    ```ts

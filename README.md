@@ -36,6 +36,7 @@
 ```
 apps/
   web/          Next.js 16 공개 사이트           :3000
+  admin/        Next.js 16 관리자 패널             :3001
   api/          Hono + better-auth + Drizzle API   :4000
 packages/
   db/           Drizzle 스키마, SQL 마이그레이션, 시드

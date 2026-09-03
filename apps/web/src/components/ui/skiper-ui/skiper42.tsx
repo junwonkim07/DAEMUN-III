@@ -450,26 +450,27 @@ const MusicIcon = ({ className }: { className?: string }) => {
   const frame = useRef(0);
 
   useEffect(() => {
-    if (!isPlaying) {
-      setHeights(Array(bars).fill(0.1));
-      return;
-    }
+    if (!isPlaying) return;
 
     let animationId: number;
     const animate = () => {
       frame.current += 1;
-      setHeights(
-        Array.from({ length: bars }, (_, i) => Math.random() * 0.8 + 0.2),
-      );
+      setHeights(Array.from({ length: bars }, () => Math.random() * 0.8 + 0.2));
       animationId = requestAnimationFrame(animate);
     };
-    animate();
+    animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying]);
 
+  const toggle = () => {
+    const next = !isPlaying;
+    setIsPlaying(next);
+    if (!next) setHeights(Array(bars).fill(0.1));
+  };
+
   return (
     <span
-      onClick={() => setIsPlaying((x) => !x)}
+      onClick={toggle}
       aria-label={isPlaying ? "Pause waveform" : "Play waveform"}
       aria-pressed={isPlaying}
       tabIndex={0}
