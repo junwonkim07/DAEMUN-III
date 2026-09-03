@@ -12,6 +12,8 @@ import React, { useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
+const REVEAL_END = 0.65;
+
 const norm = (w: string) => w.replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
 
 /** Indices of every word that belongs to an occurrence of `phrase`. */
@@ -45,6 +47,9 @@ export function ThemeReveal({
     target: containerRef,
     offset: ["start start", "end end"],
   });
+  // Finish the reveal at 65% of the section, then hold the finished text on
+  // the sticky stage for the remaining scroll (about one viewport).
+  const revealProgress = useTransform(scrollYProgress, [0, REVEAL_END], [0, 1]);
 
   const lines = paragraphs.map((p) => p.split(/\s+/).filter(Boolean));
   const allWords = lines.flat();
@@ -69,7 +74,7 @@ export function ThemeReveal({
                 {words.map((word, wi) => (
                   <AnimatedWord
                     key={`${li}-${wi}`}
-                    progress={scrollYProgress}
+                    progress={revealProgress}
                     wordIndex={start + wi}
                     totalWords={allWords.length}
                     highlighted={highlighted.has(start + wi)}

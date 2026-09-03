@@ -120,12 +120,16 @@ export function HeroSiena({
 
         {/* ---- Theme: dark photo band (same treatment as the committee intro) ---- */}
         <section id="theme" className="relative mt-32 w-full bg-navy text-white">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: "url(/theme-bg.jpg)" }}
-            aria-hidden
-          />
-          <div className="absolute inset-0 bg-navy/80" aria-hidden />
+          {/* Photo covers one viewport at a time and rides along (sticky), so it is never
+              stretched across the whole band. */}
+          <div className="absolute inset-0" aria-hidden>
+            <div
+              className="sticky top-0 h-screen w-full bg-cover bg-center"
+              style={{ backgroundImage: "url(/theme-bg.jpg)" }}
+            >
+              <div className="absolute inset-0 bg-navy/80" />
+            </div>
+          </div>
 
           <div className="relative flex w-full flex-col items-center pt-16 uppercase sm:pt-20">
             <p className="font-roman md:text-md mb-8 text-sm uppercase tracking-widest text-gold-soft">
