@@ -7,6 +7,26 @@
 
 ---
 
+## 0. 운영 환경 (2026-09-03 기준)
+
+| | 값 |
+|---|---|
+| 서버 | VPS `104.36.69.86` (Debian 13, 2 vCPU, RAM 1GB + swap 3.6GB). SSH는 김준원의 키로만 접속 |
+| 사이트 | http://104.36.69.86 |
+| API | http://104.36.69.86:8080 — `GET /health`, `GET /api/public/site` 로 확인 |
+| 스택 | `/opt/daemun`에 클론된 이 저장소 + `docker-compose.yml` (postgres, api, web, caddy). 데이터는 `/opt/daemun/data/` |
+| 배포 | **main에 머지되면 GitHub Actions가 자동 배포** (`.github/workflows/deploy.yml`). 이미지 빌드가 서버에서 돌기 때문에 3분 정도 걸리고, 그동안 서버가 잠깐 느려질 수 있다 |
+| 도메인 | 아직 없음. 생기면 서버 `.env`의 `WEB_DOMAIN`, `API_DOMAIN`만 바꾸면 Caddy가 HTTPS 자동 발급 |
+| 관리자 계정 | `admin@daemun.local`. 비밀번호는 서버 `/opt/daemun/.env`의 `ADMIN_PASSWORD` — 김준원에게 요청 |
+
+**어드민 패널 개발자에게 특히 중요한 것:**
+
+- 서버 `.env`의 `ADMIN_URL`은 지금 **`http://104.36.69.86:8080`(API 자기 자신)** 으로 되어 있다. 패널이 배포되면 이 값을 **패널의 origin**으로 바꿔야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
+- 패널을 같은 서버에 올릴 계획이면 `docker-compose.yml`에 `admin` 서비스와 `deploy/Caddyfile`에 사이트 하나를 추가하면 된다. 그러면 기존 워크플로우가 그대로 같이 배포한다. 다만 RAM 1GB라 Next 앱 두 개를 동시에 빌드하면 빡빡하다 — 문제 되면 GitHub Actions에서 이미지를 빌드해 서버는 pull만 하도록 바꾸는 게 다음 단계.
+- 프로덕션 DB는 이미 실제 사무국 명단·인사말로 채워져 있다. `packages/shared/src/default-site.ts`는 더 이상 진실이 아니고, 콘텐츠의 진실은 DB다.
+
+---
+
 ## 1. 지금 상태
 
 |                          | 상태                                                                     |
@@ -15,7 +35,7 @@
 | API`apps/api`          | 완성. 인증 + 모든 콘텐츠 CRUD + 파일 업로드 + 캐시 무효화                |
 | DB`packages/db`        | 완성. 마이그레이션 1개, 부팅 시 자동 마이그레이션·시드                  |
 | **어드민 패널 UI** | **없음 — 당신이 만든다.** API는 패널에 필요한 모든 것을 이미 제공 |
-| 실제 VPS 배포            | 아직 안 해봄                                                             |
+| 실제 VPS 배포            | **운영 중.** http://104.36.69.86 (사이트), http://104.36.69.86:8080 (API). main 머지 시 자동 배포 (§0) |
 
 콘텐츠는 대부분 `TBA` 플레이스홀더. 사무국 **직책 배정은 맞음...!**— 그러나 패널에서 향후 MUN 개최시 수정 가능하게 만드는것
 
@@ -60,7 +80,7 @@ REVALIDATE_SECRET=dev
    ```
 
    그러면 패널 코드에서는 그냥 `fetch("/api/admin/...")`.
-2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 배포 시 `https://admin.<도메인>`으로 바꿔야 한다 (`docker-compose.yml`은 지금 `API_DOMAIN`으로 되어 있음 — **수정 필요**).
+2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 배포 시 서버 `.env`의 `ADMIN_URL`을 패널 origin(예: `https://admin.<도메인>`)으로 바꾼다. 지금은 API 자기 자신(`http://104.36.69.86:8080`)을 가리킨다.
 3. **클라이언트는 `better-auth/react`를 쓴다.**
 
    ```ts
@@ -174,7 +194,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 - **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. API 부팅 시 자동 적용. zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
 - **새 CRUD 리소스**: `crudRoutes({ table, create, update, orderBy? })` (`lib/crud.ts`)에 테이블 + zod 스키마 넘기고 `admin.ts`에 `.route("/xxx", ...)` 한 줄. 손으로 라우트 짜지 말 것.
 - **배포 시 반드시**: `docker-compose.yml`에 `admin` 서비스 추가, `deploy/Caddyfile`에 도메인 추가, `ADMIN_URL`을 패널 도메인으로.
-- CI/CD 없음. 배포는 VPS에서 수동 `git pull && docker compose up -d --build`. 그래도 main은 배포 기준 브랜치이니 확신 없으면 브랜치 + PR.
+- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 서버에 SSH로 들어가 `docker compose up -d --build`까지 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인.
 
 ---
 
