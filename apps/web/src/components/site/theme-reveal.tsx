@@ -1,11 +1,13 @@
 "use client";
 /**
- * Word-by-word text reveal — adapted from skiper-ui skiper70 (TextBoxReveal).
- * Keeps skiper70's look (a solid box that dissolves into each word) but plays
- * ONCE when the block scrolls into view, then stays put in normal flow —
- * no sticky scroll-jacking. A whole phrase can be highlighted.
+ * Scroll-driven word-by-word reveal — adapted from skiper-ui skiper70
+ * (TextBoxReveal). Same mechanism as the original: a tall section with a
+ * sticky viewport-height stage; each word's box dissolves into text as the
+ * page scrolls, so the reveal follows the reader's scroll position.
+ * Differences: a whole phrase can be highlighted, copy comes in as
+ * paragraphs, and a dark tone for photo bands.
  */
-import { motion, useInView } from "framer-motion";
+import { motion, type MotionValue, useScroll, useTransform } from "framer-motion";
 import React, { useRef } from "react";
 
 import { cn } from "@/lib/utils";
@@ -26,9 +28,6 @@ function phraseIndices(words: string[], phrase?: string): Set<number> {
   return hit;
 }
 
-const STEP = 0.045; // seconds between words
-const WORD = 0.55; // seconds per word (box in → box out / text in)
-
 export function ThemeReveal({
   paragraphs,
   highlight,
@@ -41,44 +40,48 @@ export function ThemeReveal({
   /** "dark" = white text on a dark band */
   tone?: "light" | "dark";
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const inView = useInView(ref, { once: true, margin: "0px 0px -20% 0px" });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
 
   const lines = paragraphs.map((p) => p.split(/\s+/).filter(Boolean));
   const allWords = lines.flat();
   const highlighted = phraseIndices(allWords, highlight);
+  const dark = tone === "dark";
 
-  // Global index of each line's first word (computed up front so nothing is
-  // reassigned during render — react-hooks/immutability).
-  const lineStarts = lines.map((_, i) =>
-    lines.slice(0, i).reduce((sum, words) => sum + words.length, 0),
-  );
+  let offset = 0;
   return (
-    <div ref={ref} className="mx-auto w-full max-w-4xl px-5 py-24 sm:px-8 md:py-32">
-      <div
-        className={cn(
-          "flex flex-col gap-10 text-2xl leading-[1.35] tracking-tight md:text-3xl lg:text-4xl",
-          className,
-        )}
-      >
-        {lines.map((words, li) => {
-          const start = lineStarts[li];
-          return (
-            <p key={li} className="flex flex-wrap">
-              {words.map((word, wi) => (
-                <AnimatedWord
-                  key={`${li}-${wi}`}
-                  play={inView}
-                  delay={(start + wi) * STEP}
-                  highlighted={highlighted.has(start + wi)}
-                  dark={tone === "dark"}
-                >
-                  {word}
-                </AnimatedWord>
-              ))}
-            </p>
-          );
-        })}
+    <div ref={containerRef} className="relative z-0 h-[300vh]">
+      <div className="sticky top-0 mx-auto flex h-screen max-w-4xl items-center px-5 py-20 sm:px-8">
+        <div
+          className={cn(
+            "flex flex-col gap-10 text-2xl leading-[1.35] tracking-tight md:text-3xl lg:text-4xl",
+            className,
+          )}
+        >
+          {lines.map((words, li) => {
+            const start = offset;
+            offset += words.length;
+            return (
+              <p key={li} className="flex flex-wrap">
+                {words.map((word, wi) => (
+                  <AnimatedWord
+                    key={`${li}-${wi}`}
+                    progress={scrollYProgress}
+                    wordIndex={start + wi}
+                    totalWords={allWords.length}
+                    highlighted={highlighted.has(start + wi)}
+                    dark={dark}
+                  >
+                    {word}
+                  </AnimatedWord>
+                ))}
+              </p>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -86,23 +89,40 @@ export function ThemeReveal({
 
 function AnimatedWord({
   children,
-  play,
-  delay,
+  progress,
+  wordIndex,
+  totalWords,
   highlighted,
   dark,
 }: {
   children: React.ReactNode;
-  play: boolean;
-  delay: number;
+  progress: MotionValue<number>;
+  wordIndex: number;
+  totalWords: number;
   highlighted: boolean;
   dark: boolean;
 }) {
+  // skiper70 timing: each word's window overlaps the next 15 words
+  const overlapWords = 15;
+  const wordStart = wordIndex / totalWords;
+  const wordEnd = wordStart + overlapWords / totalWords;
+  const timelineScale = 1 / (1 + overlapWords / totalWords);
+  const s = wordStart * timelineScale;
+  const e = wordEnd * timelineScale;
+  const d = e - s;
+
+  const opacity = useTransform(progress, [s, e], [0, 1]);
+  const bgOpacity = useTransform(progress, [s + d * 0.9, e], [1, 0]);
+  const textOpacity = useTransform(progress, [s + d * 0.9, e], [0, 1]);
+
   return (
     <motion.span
-      className={cn("relative mx-1 inline-block lg:mx-1.5", dark ? "text-white" : "text-ink", highlighted && (dark ? "text-gold-soft" : "text-gold"))}
-      initial={{ opacity: 0 }}
-      animate={play ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ duration: WORD * 0.5, delay, ease: "easeOut" }}
+      className={cn(
+        "relative mx-1 inline-block lg:mx-1.5",
+        dark ? "text-white" : "text-ink",
+        highlighted && (dark ? "text-gold-soft" : "text-gold"),
+      )}
+      style={{ opacity }}
     >
       <motion.span
         aria-hidden
@@ -111,16 +131,9 @@ function AnimatedWord({
           dark ? "bg-white/90" : "bg-ink",
           highlighted && (dark ? "bg-gold-soft" : "bg-gold"),
         )}
-        initial={{ opacity: 1 }}
-        animate={play ? { opacity: 0 } : { opacity: 1 }}
-        transition={{ duration: WORD * 0.4, delay: delay + WORD * 0.5, ease: "easeOut" }}
+        style={{ opacity: bgOpacity }}
       />
-      <motion.span
-        className="relative z-10"
-        initial={{ opacity: 0 }}
-        animate={play ? { opacity: 1 } : { opacity: 0 }}
-        transition={{ duration: WORD * 0.4, delay: delay + WORD * 0.5, ease: "easeOut" }}
-      >
+      <motion.span className="relative z-10" style={{ opacity: textOpacity }}>
         {children}
       </motion.span>
     </motion.span>

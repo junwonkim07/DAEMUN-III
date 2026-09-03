@@ -119,7 +119,7 @@ export function HeroSiena({
         </motion.div>
 
         {/* ---- Theme: dark photo band (same treatment as the committee intro) ---- */}
-        <section id="theme" className="relative mt-32 w-full overflow-hidden bg-navy text-white">
+        <section id="theme" className="relative mt-32 w-full bg-navy text-white">
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: "url(/theme-bg.jpg)" }}
