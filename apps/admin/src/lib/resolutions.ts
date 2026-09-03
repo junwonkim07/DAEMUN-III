@@ -5,22 +5,12 @@
 // 변경은 /api/admin/resolutions CRUD + /api/admin/uploads.
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  Resolution,
-  ResolutionStatus,
-  SiteData,
-} from "@daemun/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Resolution, ResolutionStatus } from "@daemun/shared";
 import { adminFetch, uploadFile } from "./api";
+import { SITE_KEY, useSite } from "./crud-hooks";
 
-const SITE_KEY = ["admin", "site"] as const;
-
-export function useSite() {
-  return useQuery({
-    queryKey: SITE_KEY,
-    queryFn: () => adminFetch<SiteData>("/site"),
-  });
-}
+export { useSite };
 
 function useInvalidateSite() {
   const qc = useQueryClient();

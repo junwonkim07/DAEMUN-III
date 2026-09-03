@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 const NAV = [
   { href: "/dashboard", label: "개요", exact: true },
   { href: "/dashboard/resolutions", label: "결의안 현황판" },
+  { href: "/dashboard/secretariat", label: "사무국" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
