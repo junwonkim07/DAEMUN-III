@@ -1,6 +1,12 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
 import { asc, eq } from "drizzle-orm";
-import { defaultSite, type Person, type SiteData } from "@daemun/shared";
+import {
+  chatRequestSchema,
+  defaultSite,
+  type Person,
+  type SiteData,
+} from "@daemun/shared";
 import {
   committees,
   conference,
@@ -13,6 +19,14 @@ import {
   topics,
 } from "@daemun/db";
 import { db } from "../db";
+import {
+  buildSystemPrompt,
+  ChatUnavailableError,
+  ChatUpstreamError,
+  generateReply,
+} from "../lib/chat";
+import { renderFaqContext, searchFaqs } from "../lib/faq-search";
+import { rateLimit } from "../lib/rate-limit";
 
 type BuildOptions = {
   /**
@@ -117,8 +131,72 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
   };
 }
 
-export const publicRoutes = new Hono().get("/site", async (c) => {
-  const data = await buildSiteData({ publicView: true });
-  c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
-  return c.json(data);
-});
+/** 안내 챗봇 응답 하나를 못 만들었을 때 보여줄 기본 문구. */
+const CHAT_FALLBACK =
+  "지금은 답변을 드리기 어려워요. 잠시 후 다시 시도하시거나, DAEMUN 공식 인스타그램/이메일로 문의해주세요.";
+
+export const publicRoutes = new Hono()
+  .get("/site", async (c) => {
+    const data = await buildSiteData({ publicView: true });
+    c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+    return c.json(data);
+  })
+
+  /**
+   * 안내 챗봇. 무상태 — 프론트가 messages 배열에 대화 전체를 담아 보낸다.
+   * 마지막 user 메시지로 공개 FAQ를 검색해 컨텍스트를 채우고 Gemini에 넘긴다.
+   * 개인정보 DB(신청서 등)는 절대 참조하지 않는다 (설계안 §3-3).
+   */
+  .post("/chat", zValidator("json", chatRequestSchema), async (c) => {
+    const ip =
+      c.req.header("cf-connecting-ip") ??
+      c.req.header("x-real-ip") ??
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "local";
+
+    // 분당 10회 / IP — 남용·비용 폭탄 방지 (설계안 §3-3)
+    const limited = rateLimit(`chat:${ip}`, 10, 60_000);
+    if (!limited.ok) {
+      c.header("Retry-After", String(limited.retryAfterSec));
+      return c.json(
+        { reply: "메시지를 너무 빠르게 보내고 계세요. 잠시 후 다시 시도해주세요." },
+        429,
+      );
+    }
+
+    const { messages } = c.req.valid("json");
+    if (messages[messages.length - 1]?.role !== "user") {
+      return c.json({ error: "last message must be from the user" }, 400);
+    }
+    const lastUser = messages[messages.length - 1]!.content;
+
+    const [hits, [confRow]] = await Promise.all([
+      searchFaqs(lastUser, 5),
+      db.select().from(conference).where(eq(conference.id, "main")).limit(1),
+    ]);
+
+    const contact = {
+      email: confRow?.email && confRow.email !== "TBA" ? confRow.email : "운영진 이메일",
+      instagram: confRow?.instagram ?? "@daemun_official",
+      instagramUrl: confRow?.instagramUrl ?? "#",
+    };
+
+    const systemPrompt = buildSystemPrompt(renderFaqContext(hits), contact);
+
+    try {
+      const reply = await generateReply(messages, systemPrompt);
+      return c.json({ reply });
+    } catch (err) {
+      if (err instanceof ChatUnavailableError) {
+        return c.json(
+          { reply: "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요." },
+          503,
+        );
+      }
+      if (err instanceof ChatUpstreamError) {
+        console.warn("[chat] upstream:", err.message);
+        return c.json({ reply: CHAT_FALLBACK }, 502);
+      }
+      throw err;
+    }
+  });

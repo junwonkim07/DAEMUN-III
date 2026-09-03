@@ -265,6 +265,28 @@ export const faqCreateSchema = z.object(faqFields).extend({
 export const faqUpdateSchema = z.object(faqFields).partial();
 
 /* ------------------------------------------------------------------ */
+/*  Chat (안내 챗봇 — 공개 엔드포인트 POST /api/chat)                   */
+/* ------------------------------------------------------------------ */
+
+export const chatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: str.min(1).max(4000),
+});
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+/**
+ * 챗봇은 무상태다 — 프론트가 매 요청에 대화 전체를 보낸다. 서버는 최근
+ * 몇 턴만 모델에 전달한다(비용 상한). 마지막 메시지는 반드시 user.
+ */
+export const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).min(1).max(40),
+});
+export type ChatRequest = z.infer<typeof chatRequestSchema>;
+
+export const chatResponseSchema = z.object({ reply: str });
+export type ChatResponse = z.infer<typeof chatResponseSchema>;
+
+/* ------------------------------------------------------------------ */
 /*  Reorder                                                            */
 /* ------------------------------------------------------------------ */
 
