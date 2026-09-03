@@ -141,13 +141,13 @@ export function HeroSiena({
                   <p className="font-roman md:text-md mb-5 text-sm uppercase tracking-widest text-gold-soft">
                     Theme of DAEMUN III
                   </p>
-                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-7xl" style={{ lineHeight: 1 }}>
                     From
                   </h1>
-                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                  <h1 className="font-custom w-full border-t border-white/30 py-1 text-center text-5xl lg:text-7xl" style={{ lineHeight: 1 }}>
                     Vulnerability
                   </h1>
-                  <h1 className="font-custom w-full border-b border-t border-white/30 py-1 text-center text-4xl lg:text-6xl" style={{ lineHeight: 1 }}>
+                  <h1 className="font-custom w-full border-b border-t border-white/30 py-1 text-center text-5xl lg:text-7xl" style={{ lineHeight: 1 }}>
                     to Voice
                   </h1>
                 </div>

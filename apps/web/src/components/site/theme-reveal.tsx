@@ -65,7 +65,7 @@ export function ThemeReveal({
 
   return (
     <div ref={containerRef} className="relative z-0 h-[300vh]">
-      <div className="sticky top-0 flex h-screen w-full flex-col items-center justify-center gap-8 px-5 py-16 sm:px-8 md:gap-12">
+      <div className="sticky top-0 flex h-screen w-full flex-col items-center justify-center gap-6 px-5 py-10 sm:px-8 md:gap-9">
         {header}
         <div
           className={cn(
