@@ -4,32 +4,44 @@
     {
       "name": "daemun-web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@daemun/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@daemun/web",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "daemun-web-3010",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@daemun/web", "dev", "-p", "3010"],
+      "runtimeArgs": [
+        "--filter",
+        "@daemun/web",
+        "dev",
+        "-p",
+        "3010"
+      ],
       "port": 3010
     },
     {
       "name": "daemun-admin",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@daemun/admin", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@daemun/admin",
+        "dev"
+      ],
       "port": 3001
     },
     {
       "name": "daemun-api",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@daemun/api", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@daemun/api",
+        "dev"
+      ],
       "port": 4000
-    },
-    {
-      "name": "daemun-admin",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@daemun/admin", "dev"],
-      "port": 3001
     }
   ]
 }

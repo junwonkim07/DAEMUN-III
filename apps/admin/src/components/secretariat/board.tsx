@@ -3,11 +3,12 @@
 
 import { useRef, useState } from "react";
 import type { Department, Person, SiteData } from "@daemun/shared";
-import { ApiError } from "@/lib/api";
+import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
   departmentHooks,
   peopleHooks,
+  useRemoveDepartmentWithMembers,
   useUploadPersonPhoto,
 } from "@/lib/secretariat";
 import { InlineText, InlineTextarea } from "@/components/inline-edit";
@@ -143,7 +144,9 @@ function PersonCard({
 
   const busy = update.isPending || remove.isPending || reorder.isPending;
   const err =
-    (update.error as Error | null) ?? (remove.error as Error | null);
+    (update.error as Error | null) ??
+    (remove.error as Error | null) ??
+    (reorder.error as Error | null);
 
   return (
     <div className="flex gap-3 rounded-lg border border-neutral-200 bg-white p-3">
@@ -157,7 +160,7 @@ function PersonCard({
               value={person.name}
               placeholder="이름"
               pending={update.isPending}
-              onCommit={(name) => update.mutate({ id: person.id, patch: { name } })}
+              onCommit={(name) => update.mutateAsync({ id: person.id, patch: { name } })}
               className="text-[15px] font-medium"
             />
             <InlineText
@@ -165,7 +168,7 @@ function PersonCard({
               value={person.role}
               placeholder="직책 (예: Deputy Secretary-General)"
               pending={update.isPending}
-              onCommit={(role) => update.mutate({ id: person.id, patch: { role } })}
+              onCommit={(role) => update.mutateAsync({ id: person.id, patch: { role } })}
               className="text-xs text-neutral-500"
             />
           </div>
@@ -199,7 +202,7 @@ function PersonCard({
             placeholder="인사말 — 비워두면 사이트에 표시되지 않음"
             pending={update.isPending}
             onCommit={(greeting) =>
-              update.mutate({ id: person.id, patch: { greeting: greeting || null } })
+              update.mutateAsync({ id: person.id, patch: { greeting: greeting || null } })
             }
           />
         </div>
@@ -216,11 +219,23 @@ function PhotoCell({ person }: { person: Person }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
 
+  // 업로드/교체와 삭제는 다른 mutation — 같은 busy로 묶어 경합을 막는다
+  const busy = upload.isPending || update.isPending;
+  const err =
+    localErr ??
+    (upload.error as Error | null)?.message ??
+    (update.error as Error | null)?.message ??
+    null;
+
   function pick(file: File | undefined) {
     setLocalErr(null);
     if (!file) return;
     if (!/\.(jpe?g|png|webp)$/i.test(file.name)) {
       setLocalErr("이미지(jpg/png/webp)만");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setLocalErr("25MB를 넘는 파일은 올릴 수 없습니다");
       return;
     }
     upload.mutate({ id: person.id, file });
@@ -247,12 +262,16 @@ function PhotoCell({ person }: { person: Person }) {
         type="file"
         accept=".jpg,.jpeg,.png,.webp"
         className="hidden"
-        onChange={(e) => pick(e.target.files?.[0])}
+        onChange={(e) => {
+          pick(e.target.files?.[0]);
+          // 같은 파일을 다시 고를 때도 change가 나도록 비운다
+          e.target.value = "";
+        }}
       />
       <div className="mt-1 flex items-center justify-between text-[11px]">
         <button
           type="button"
-          disabled={upload.isPending}
+          disabled={busy}
           onClick={() => inputRef.current?.click()}
           className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
         >
@@ -261,20 +280,18 @@ function PhotoCell({ person }: { person: Person }) {
         {person.photo && (
           <button
             type="button"
-            disabled={update.isPending}
-            onClick={() => update.mutate({ id: person.id, patch: { photo: null } })}
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(`"${person.name}" 사진을 삭제할까요?`))
+                update.mutate({ id: person.id, patch: { photo: null } });
+            }}
             className="text-neutral-400 hover:text-red-600 disabled:opacity-50"
           >
             삭제
           </button>
         )}
       </div>
-      {localErr && <p className="text-[11px] text-red-600">{localErr}</p>}
-      {upload.error && (
-        <p className="text-[11px] text-red-600">
-          {(upload.error as Error).message}
-        </p>
-      )}
+      {err && <p className="text-[11px] text-red-600">{err}</p>}
     </div>
   );
 }
@@ -317,7 +334,7 @@ function DepartmentCard({
   siblings: (Department & { members: Person[] })[];
 }) {
   const update = departmentHooks.useUpdate();
-  const remove = departmentHooks.useRemove();
+  const remove = useRemoveDepartmentWithMembers();
   const reorder = departmentHooks.useReorder();
 
   const idx = siblings.findIndex((d) => d.id === department.id);
@@ -328,6 +345,10 @@ function DepartmentCard({
     reorder.mutate(next.map((d) => d.id));
   };
   const busy = update.isPending || remove.isPending || reorder.isPending;
+  const err =
+    (update.error as Error | null) ??
+    (remove.error as Error | null) ??
+    (reorder.error as Error | null);
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
@@ -338,7 +359,7 @@ function DepartmentCard({
             value={department.name}
             placeholder="부서 이름"
             pending={update.isPending}
-            onCommit={(name) => update.mutate({ id: department.id, patch: { name } })}
+            onCommit={(name) => update.mutateAsync({ id: department.id, patch: { name } })}
             className="text-sm font-semibold"
           />
           <InlineTextarea
@@ -347,7 +368,7 @@ function DepartmentCard({
             placeholder="부서 소개"
             rows={2}
             pending={update.isPending}
-            onCommit={(blurb) => update.mutate({ id: department.id, patch: { blurb } })}
+            onCommit={(blurb) => update.mutateAsync({ id: department.id, patch: { blurb } })}
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
@@ -366,12 +387,16 @@ function DepartmentCard({
             danger
             disabled={busy}
             onClick={() => {
-              if (
-                window.confirm(
-                  `"${department.name}" 부서를 삭제할까요? 소속 부원은 부서 없음 상태가 됩니다.`,
-                )
-              )
-                remove.mutate(department.id);
+              const n = department.members.length;
+              const msg =
+                n > 0
+                  ? `"${department.name}" 부서와 소속 부원 ${n}명을 함께 삭제할까요? 되돌릴 수 없습니다.`
+                  : `"${department.name}" 부서를 삭제할까요?`;
+              if (window.confirm(msg))
+                remove.mutate({
+                  id: department.id,
+                  memberIds: department.members.map((m) => m.id),
+                });
             }}
           >
             ✕
@@ -379,11 +404,9 @@ function DepartmentCard({
         </div>
       </div>
 
-      {remove.error && (
-        <p className="mt-1 text-xs text-red-600">
-          {(remove.error as Error).message}
-        </p>
-      )}
+      <div className="mt-1">
+        <StatusLine busy={busy} err={err} />
+      </div>
 
       <div className="mt-3 border-t border-neutral-200 pt-3">
         <PeopleList

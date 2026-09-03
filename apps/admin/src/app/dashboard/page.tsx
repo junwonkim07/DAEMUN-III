@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSite } from "@/lib/resolutions";
+import { useSite } from "@/lib/crud-hooks";
 
 export default function DashboardPage() {
   const { data, isPending, error } = useSite();
@@ -51,7 +51,7 @@ export default function DashboardPage() {
         >
           결의안 현황판
         </Link>
-        에서. 사무국·회의정보 화면은 이후 추가됩니다 (handover.md §5).
+        에서, 명단·인사말은 사무국 화면에서. 회의정보·위원회·의제·일정·문서 화면은 이후 추가됩니다 (handover.md §5).
       </p>
     </div>
   );

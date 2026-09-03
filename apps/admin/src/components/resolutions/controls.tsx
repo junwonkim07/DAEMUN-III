@@ -4,8 +4,6 @@
 import type { ResolutionStatus } from "@daemun/shared";
 import { cn } from "@/lib/cn";
 
-export { InlineText } from "../inline-edit";
-
 export const STATUS_META: Record<
   ResolutionStatus,
   { label: string; active: string; idle: string }

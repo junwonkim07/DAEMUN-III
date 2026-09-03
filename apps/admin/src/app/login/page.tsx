@@ -24,8 +24,9 @@ export default function LoginPage() {
         setError(signInError.message ?? "로그인에 실패했습니다.");
         return;
       }
-      router.push("/dashboard");
-      router.refresh();
+      // adminFetch가 401에 ?next=로 돌려보낸 경우 원래 화면으로 복귀
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next && next.startsWith("/dashboard") ? next : "/dashboard");
     } catch {
       // 네트워크 오류 등 예상치 못한 예외
       setError("서버에 연결할 수 없습니다. API가 실행 중인지 확인하세요.");

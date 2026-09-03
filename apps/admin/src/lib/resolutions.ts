@@ -1,62 +1,25 @@
-// apps/admin/src/lib/resolutions.ts
-//
-// 결의안 현황판이 쓰는 react-query 훅. 데이터 소스는 GET /api/admin/site
+// 결의안 현황판이 쓰는 react-query 훅. 데이터 소스는 useSite()
 // (공개 사이트가 받는 SiteData 그대로 — 위원회+의제+결의안이 한 번에 온다).
 // 변경은 /api/admin/resolutions CRUD + /api/admin/uploads.
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Resolution, ResolutionStatus } from "@daemun/shared";
+import { useMutation } from "@tanstack/react-query";
+import type { z } from "zod";
+import {
+  type Resolution,
+  type resolutionCreateSchema,
+  type resolutionUpdateSchema,
+} from "@daemun/shared";
 import { adminFetch, uploadFile } from "./api";
-import { SITE_KEY, useSite } from "./crud-hooks";
+import { makeResourceHooks, useInvalidateSite } from "./crud-hooks";
 
-export { useSite };
+/** API가 검증하는 zod 스키마에서 그대로 추론 — 스키마가 바뀌면 여기서 타입 에러가 난다. */
+export type NewResolution = z.input<typeof resolutionCreateSchema>;
+export type ResolutionPatch = z.input<typeof resolutionUpdateSchema>;
 
-function useInvalidateSite() {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: SITE_KEY });
-}
-
-export type NewResolution = {
-  committeeId: string;
-  topicId: string;
-  label?: string;
-  submitter?: string;
-  status?: ResolutionStatus;
-  document?: string | null;
-};
-
-export function useCreateResolution() {
-  const invalidate = useInvalidateSite();
-  return useMutation({
-    mutationFn: (input: NewResolution) =>
-      adminFetch<Resolution>("/resolutions", { method: "POST", json: input }),
-    onSuccess: invalidate,
-  });
-}
-
-export function useUpdateResolution() {
-  const invalidate = useInvalidateSite();
-  return useMutation({
-    mutationFn: ({
-      id,
-      patch,
-    }: {
-      id: string;
-      patch: Partial<Omit<Resolution, "id" | "sortOrder" | "updatedAt">>;
-    }) => adminFetch<Resolution>(`/resolutions/${id}`, { method: "PATCH", json: patch }),
-    onSuccess: invalidate,
-  });
-}
-
-export function useDeleteResolution() {
-  const invalidate = useInvalidateSite();
-  return useMutation({
-    mutationFn: (id: string) =>
-      adminFetch<{ ok: true }>(`/resolutions/${id}`, { method: "DELETE" }),
-    onSuccess: invalidate,
-  });
-}
+export const resolutionHooks = makeResourceHooks<Resolution, NewResolution, ResolutionPatch>(
+  "/resolutions",
+);
 
 /** 파일 업로드 후 해당 결의안 document 필드를 갱신한다. */
 export function useUploadResolutionDoc() {

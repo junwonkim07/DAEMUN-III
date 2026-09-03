@@ -73,10 +73,13 @@ function TopicRow({
   index,
   title,
   entry,
+  first = true,
 }: {
   index: number;
   title: string;
   entry?: Resolution;
+  /** 같은 의제의 두 번째 결의안부터는 번호·제목을 반복하지 않는다 */
+  first?: boolean;
 }) {
   const status: ResolutionStatus = entry?.status ?? "awaiting";
   const numeral = ROMAN[index] ?? String(index + 1);
@@ -90,7 +93,7 @@ function TopicRow({
       )}
     >
       <div className="hidden text-[22px] italic leading-none text-faint sm:block">
-        {numeral}
+        {first ? numeral : ""}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -98,7 +101,7 @@ function TopicRow({
           Topic {numeral}
         </div>
         <div className="text-[15px] font-semibold leading-snug text-ink">
-          <TBA value={title} />
+          {first ? <TBA value={title} /> : <span className="text-faint">〃</span>}
         </div>
         <div className="text-[12px] text-muted">
           {entry ? entry.label : "No draft submitted"}
@@ -170,14 +173,22 @@ function CommitteePanel({
         </div>
 
         <ul>
-          {committee.topics.map((topic, i) => (
-            <TopicRow
-              key={topic.id}
-              index={i}
-              title={topic.title}
-              entry={entries.find((e) => e.topicId === topic.id)}
-            />
-          ))}
+          {committee.topics.flatMap((topic, i) => {
+            // 한 의제에 결의안이 여러 개일 수 있다 (팀이 둘로 갈린 경우) — 전부 그린다
+            const forTopic = entries.filter((e) => e.topicId === topic.id);
+            if (forTopic.length === 0) {
+              return [<TopicRow key={topic.id} index={i} title={topic.title} />];
+            }
+            return forTopic.map((entry, j) => (
+              <TopicRow
+                key={entry.id}
+                index={i}
+                title={topic.title}
+                entry={entry}
+                first={j === 0}
+              />
+            ));
+          })}
         </ul>
       </div>
     </>

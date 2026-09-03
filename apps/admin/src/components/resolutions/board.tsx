@@ -1,22 +1,18 @@
 // apps/admin/src/components/resolutions/board.tsx
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type {
   CommitteeWithTopics,
   Resolution,
   ResolutionStatus,
   SiteData,
 } from "@daemun/shared";
-import { ApiError } from "@/lib/api";
+import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import {
-  useCreateResolution,
-  useDeleteResolution,
-  useUpdateResolution,
-  useUploadResolutionDoc,
-} from "@/lib/resolutions";
-import { InlineText, STATUS_META, StatusControl } from "./controls";
+import { resolutionHooks, useUploadResolutionDoc } from "@/lib/resolutions";
+import { InlineText } from "@/components/inline-edit";
+import { STATUS_META, StatusControl } from "./controls";
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 
@@ -76,19 +72,31 @@ function CommitteeSection({
           />
         ))}
 
+        {/* 의제가 다른 위원회로 옮겨진 경우 (의제 삭제는 DB cascade로 결의안까지 지운다).
+            여기서는 결의안 추가를 막는다 — committeeId/topicId가 어긋난 행이 생기지 않게. */}
         {orphanTopicIds.map((topicId) => (
           <TopicGroup
             key={topicId}
             numeral="—"
-            title="미분류 의제 (삭제된 의제에 연결된 결의안)"
+            title="미분류 (의제가 다른 위원회로 옮겨짐 — 결의안을 옮기거나 삭제하세요)"
             committeeId={committee.id}
             topicId={topicId}
             resolutions={byTopic.get(topicId) ?? []}
+            allowAdd={false}
           />
         ))}
       </div>
     </section>
   );
+}
+
+/** "결의안 N"의 N — 삭제로 구멍이 나도 겹치지 않게 기존 최대값 + 1. */
+function nextLabel(resolutions: Resolution[]) {
+  const max = resolutions.reduce((m, r) => {
+    const n = /^결의안 (\d+)$/.exec(r.label.trim());
+    return n ? Math.max(m, Number(n[1])) : m;
+  }, 0);
+  return `결의안 ${Math.max(max, resolutions.length) + 1}`;
 }
 
 function TopicGroup({
@@ -97,14 +105,16 @@ function TopicGroup({
   committeeId,
   topicId,
   resolutions,
+  allowAdd = true,
 }: {
   numeral: string;
   title: string;
   committeeId: string;
   topicId: string;
   resolutions: Resolution[];
+  allowAdd?: boolean;
 }) {
-  const create = useCreateResolution();
+  const create = resolutionHooks.useCreate();
 
   return (
     <div className="px-5 py-4">
@@ -115,21 +125,23 @@ function TopicGroup({
             {title || "제목 미정"}
           </span>
         </div>
-        <button
-          type="button"
-          disabled={create.isPending}
-          onClick={() =>
-            create.mutate({
-              committeeId,
-              topicId,
-              label: `결의안 ${resolutions.length + 1}`,
-              status: "awaiting",
-            })
-          }
-          className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
-        >
-          + 결의안 추가
-        </button>
+        {allowAdd && (
+          <button
+            type="button"
+            disabled={create.isPending}
+            onClick={() =>
+              create.mutate({
+                committeeId,
+                topicId,
+                label: nextLabel(resolutions),
+                status: "awaiting",
+              })
+            }
+            className="shrink-0 rounded-md border border-neutral-300 px-2.5 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
+          >
+            + 결의안 추가
+          </button>
+        )}
       </div>
 
       {create.error && (
@@ -152,8 +164,8 @@ function TopicGroup({
 }
 
 function ResolutionRow({ resolution }: { resolution: Resolution }) {
-  const update = useUpdateResolution();
-  const remove = useDeleteResolution();
+  const update = resolutionHooks.useUpdate();
+  const remove = resolutionHooks.useRemove();
 
   const busy = update.isPending || remove.isPending;
   const err =
@@ -168,7 +180,7 @@ function ResolutionRow({ resolution }: { resolution: Resolution }) {
             value={resolution.label}
             placeholder="결의안 이름 (예: Draft Resolution 1.1)"
             pending={update.isPending}
-            onCommit={(label) => update.mutate({ id: resolution.id, patch: { label } })}
+            onCommit={(label) => update.mutateAsync({ id: resolution.id, patch: { label } })}
           />
         </div>
         <div className="min-w-[7rem] flex-1">
@@ -178,7 +190,7 @@ function ResolutionRow({ resolution }: { resolution: Resolution }) {
             placeholder="제출 팀"
             pending={update.isPending}
             onCommit={(submitter) =>
-              update.mutate({ id: resolution.id, patch: { submitter } })
+              update.mutateAsync({ id: resolution.id, patch: { submitter } })
             }
           />
         </div>
@@ -224,16 +236,29 @@ function ResolutionRow({ resolution }: { resolution: Resolution }) {
 
 function DocCell({ resolution }: { resolution: Resolution }) {
   const upload = useUploadResolutionDoc();
-  const update = useUpdateResolution();
+  const update = resolutionHooks.useUpdate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const [localErr, setLocalErr] = useState<string | null>(null);
+
+  // 업로드/교체와 삭제가 서로 다른 mutation이라 둘 다 같은 busy로 묶는다 —
+  // 교체 중에 삭제를 누르면 완료 순서에 따라 결과가 뒤집힌다.
+  const busy = upload.isPending || update.isPending;
+  const err =
+    localErr ??
+    (upload.error as Error | null)?.message ??
+    (update.error as Error | null)?.message ??
+    null;
 
   function pick(file: File | undefined) {
     setLocalErr(null);
     if (!file) return;
-    const ok = /\.(pdf|docx?|jpe?g|png|webp)$/i.test(file.name);
-    if (!ok) {
+    if (!/\.(pdf|docx?|jpe?g|png|webp)$/i.test(file.name)) {
       setLocalErr("PDF/DOC/이미지만 업로드 가능");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setLocalErr("25MB를 넘는 파일은 올릴 수 없습니다");
       return;
     }
     upload.mutate({ id: resolution.id, file });
@@ -243,10 +268,15 @@ function DocCell({ resolution }: { resolution: Resolution }) {
     <div className="flex items-center gap-2 text-xs">
       <input
         ref={inputRef}
+        id={inputId}
         type="file"
         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
         className="hidden"
-        onChange={(e) => pick(e.target.files?.[0])}
+        onChange={(e) => {
+          pick(e.target.files?.[0]);
+          // 같은 파일을 다시 고를 때도 change가 나도록 비운다
+          e.target.value = "";
+        }}
       />
       {resolution.document ? (
         <>
@@ -260,18 +290,19 @@ function DocCell({ resolution }: { resolution: Resolution }) {
           </a>
           <button
             type="button"
-            disabled={upload.isPending}
+            disabled={busy}
             onClick={() => inputRef.current?.click()}
             className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
           >
-            교체
+            {upload.isPending ? "업로드 중…" : "교체"}
           </button>
           <button
             type="button"
-            disabled={update.isPending}
-            onClick={() =>
-              update.mutate({ id: resolution.id, patch: { document: null } })
-            }
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm("이 결의안의 문서 링크를 삭제할까요? 파일은 다시 올려야 합니다."))
+                update.mutate({ id: resolution.id, patch: { document: null } });
+            }}
             className="text-neutral-400 hover:text-red-600 disabled:opacity-50"
           >
             삭제
@@ -280,7 +311,7 @@ function DocCell({ resolution }: { resolution: Resolution }) {
       ) : (
         <button
           type="button"
-          disabled={upload.isPending}
+          disabled={busy}
           onClick={() => inputRef.current?.click()}
           className={cn(
             "rounded border border-dashed border-neutral-300 px-2 py-1 text-neutral-500",
@@ -290,7 +321,7 @@ function DocCell({ resolution }: { resolution: Resolution }) {
           {upload.isPending ? "업로드 중…" : "PDF 업로드"}
         </button>
       )}
-      {localErr && <span className="text-red-600">{localErr}</span>}
+      {err && <span className="text-red-600">{err}</span>}
     </div>
   );
 }

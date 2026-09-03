@@ -4,7 +4,7 @@
 import type { ResolutionStatus } from "@daemun/shared";
 import { ResolutionBoard } from "@/components/resolutions/board";
 import { STATUS_META } from "@/components/resolutions/controls";
-import { useSite } from "@/lib/resolutions";
+import { useSite } from "@/lib/crud-hooks";
 
 export default function ResolutionsPage() {
   const { data, isPending, error, isFetching, refetch } = useSite();
