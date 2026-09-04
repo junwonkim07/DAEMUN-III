@@ -4,6 +4,13 @@
 	handle /uploads/* {
 		reverse_proxy api:4000
 	}
+	# 안내 챗봇 — zod 검증 전에 거대한 본문이 버퍼링되지 않도록 (Hono bodyLimit도 있음)
+	handle /api/chat {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy web:3000
+	}
 	handle {
 		reverse_proxy web:3000
 	}

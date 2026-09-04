@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { zValidator } from "@hono/zod-validator";
 import { asc, eq } from "drizzle-orm";
 import {
@@ -26,6 +27,7 @@ import {
   generateReply,
 } from "../lib/chat";
 import { logChat } from "../lib/chat-log";
+import { clientIp } from "../lib/client-ip";
 import { renderFaqContext, searchFaqs } from "../lib/faq-search";
 import { rateLimit } from "../lib/rate-limit";
 
@@ -148,63 +150,66 @@ export const publicRoutes = new Hono()
    * 마지막 user 메시지로 공개 FAQ를 검색해 컨텍스트를 채우고 Gemini에 넘긴다.
    * 개인정보 DB(신청서 등)는 절대 참조하지 않는다 (설계안 §3-3).
    */
-  .post("/chat", zValidator("json", chatRequestSchema), async (c) => {
-    const ip =
-      c.req.header("cf-connecting-ip") ??
-      c.req.header("x-real-ip") ??
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "local";
-
-    // 분당 10회 / IP — 남용·비용 폭탄 방지 (설계안 §3-3)
-    const limited = rateLimit(`chat:${ip}`, 10, 60_000);
-    if (!limited.ok) {
-      c.header("Retry-After", String(limited.retryAfterSec));
-      return c.json(
-        { reply: "메시지를 너무 빠르게 보내고 계세요. 잠시 후 다시 시도해주세요." },
-        429,
-      );
-    }
-
-    const { messages } = c.req.valid("json");
-    if (messages[messages.length - 1]?.role !== "user") {
-      return c.json({ error: "last message must be from the user" }, 400);
-    }
-    const lastUser = messages[messages.length - 1]!.content;
-
-    const [hits, [confRow]] = await Promise.all([
-      searchFaqs(lastUser, 5),
-      db.select().from(conference).where(eq(conference.id, "main")).limit(1),
-    ]);
-
-    const contact = {
-      email: confRow?.email && confRow.email !== "TBA" ? confRow.email : "운영진 이메일",
-      instagram: confRow?.instagram ?? "@daemun_official",
-      instagramUrl: confRow?.instagramUrl ?? "#",
-    };
-
-    const systemPrompt = buildSystemPrompt(renderFaqContext(hits), contact);
-
-    try {
-      const reply = await generateReply(messages, systemPrompt);
-      logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits: hits.length });
-      return c.json({ reply });
-    } catch (err) {
-      if (err instanceof ChatUnavailableError) {
-        const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
-        logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits: hits.length });
-        return c.json({ reply }, 503);
+  .post(
+    "/chat",
+    bodyLimit({
+      maxSize: 64 * 1024,
+      onError: (c) =>
+        c.json({ reply: "메시지가 너무 깁니다. 짧게 나눠서 물어봐 주세요." }, 413),
+    }),
+    zValidator("json", chatRequestSchema),
+    async (c) => {
+      // 분당 10회 / IP — 남용·비용 폭탄 방지 (설계안 §3-3)
+      const limited = rateLimit(`chat:${clientIp(c)}`, 10, 60_000);
+      if (!limited.ok) {
+        c.header("Retry-After", String(limited.retryAfterSec));
+        return c.json(
+          { reply: "메시지를 너무 빠르게 보내고 계세요. 잠시 후 다시 시도해주세요." },
+          429,
+        );
       }
-      if (err instanceof ChatUpstreamError) {
-        console.warn("[chat] upstream:", err.message);
-        const blocked = err.message.startsWith("blocked:");
-        logChat({
-          question: lastUser,
-          answer: CHAT_FALLBACK,
-          outcome: blocked ? "blocked" : "error",
-          faqHits: hits.length,
-        });
-        return c.json({ reply: CHAT_FALLBACK }, 502);
+
+      const { messages } = c.req.valid("json");
+      if (messages[messages.length - 1]?.role !== "user") {
+        return c.json({ error: "last message must be from the user" }, 400);
       }
-      throw err;
-    }
-  });
+      const lastUser = messages[messages.length - 1]!.content;
+
+      const [hits, [confRow]] = await Promise.all([
+        searchFaqs(lastUser, 5),
+        db.select().from(conference).where(eq(conference.id, "main")).limit(1),
+      ]);
+
+      const contact = {
+        email: confRow?.email && confRow.email !== "TBA" ? confRow.email : "운영진 이메일",
+        instagram: confRow?.instagram ?? "@daemun_official",
+        instagramUrl: confRow?.instagramUrl ?? "#",
+      };
+
+      const systemPrompt = buildSystemPrompt(renderFaqContext(hits), contact);
+
+      try {
+        const reply = await generateReply(messages, systemPrompt);
+        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits: hits.length });
+        return c.json({ reply });
+      } catch (err) {
+        if (err instanceof ChatUnavailableError) {
+          const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
+          logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits: hits.length });
+          return c.json({ reply }, 503);
+        }
+        if (err instanceof ChatUpstreamError) {
+          console.warn("[chat] upstream:", err.message);
+          const blocked = err.message.startsWith("blocked:");
+          logChat({
+            question: lastUser,
+            answer: CHAT_FALLBACK,
+            outcome: blocked ? "blocked" : "error",
+            faqHits: hits.length,
+          });
+          return c.json({ reply: CHAT_FALLBACK }, 502);
+        }
+        throw err;
+      }
+    },
+  );

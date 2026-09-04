@@ -137,7 +137,7 @@ export const adminRoutes = new Hono()
 
   /* -- 챗봇 질문-답변 로그 (읽기 + 전체 삭제) ----------------------- */
   .get("/chat-logs", async (c) => {
-    const limit = Math.min(Number(c.req.query("limit") ?? 200) || 200, 500);
+    const limit = Math.max(1, Math.min(Number(c.req.query("limit")) || 200, 500));
     const rows = await db
       .select()
       .from(chatLogs)

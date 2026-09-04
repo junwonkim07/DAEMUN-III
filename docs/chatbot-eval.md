@@ -8,7 +8,8 @@
 
 1. `apps/api/.env`에 `GEMINI_API_KEY` (무료: aistudio.google.com/apikey)
 2. `pnpm dev:api`, 관리자 로그인 후 `/dashboard/faqs`에 실제 FAQ가 있어야 함
-3. `POST /api/chat` 에 아래 질문을 하나씩 (레이트리밋 IP당 10회/분)
+3. 아래 질문을 하나씩 POST (레이트리밋 IP당 10회/분).
+   웹을 거치면 `/api/chat`, API에 직접 치면 `/api/public/chat`
 
 ## 질문 세트
 

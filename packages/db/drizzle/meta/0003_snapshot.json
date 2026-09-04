@@ -1,5 +1,5 @@
 {
-  "id": "08cfb9a4-7fb9-4118-a522-d8e140c3bbd4",
+  "id": "e7945af1-55e6-476e-bdde-30a502068f50",
   "prevId": "bb54e585-6832-4075-8ed6-d2e84de6df53",
   "version": "7",
   "dialect": "postgresql",
@@ -162,7 +162,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "chat_logs_created_at_idx": {
+          "name": "chat_logs_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

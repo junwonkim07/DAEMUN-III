@@ -16,6 +16,8 @@ import { db } from "../db";
  */
 
 const RETENTION_DAYS = 90;
+const SWEEP_INTERVAL_MS = 60 * 60 * 1000; // 보관 정리는 최대 1시간에 한 번
+let lastSweep = 0;
 
 export function logChat(entry: {
   question: string;
@@ -32,8 +34,13 @@ export function logChat(entry: {
         outcome: entry.outcome,
         faqHits: entry.faqHits,
       });
-      const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-      await db.delete(chatLogs).where(lt(chatLogs.createdAt, cutoff));
+
+      const now = Date.now();
+      if (now - lastSweep > SWEEP_INTERVAL_MS) {
+        lastSweep = now;
+        const cutoff = new Date(now - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        await db.delete(chatLogs).where(lt(chatLogs.createdAt, cutoff));
+      }
     } catch (err) {
       console.warn("[chat-log] insert failed:", (err as Error).message);
     }

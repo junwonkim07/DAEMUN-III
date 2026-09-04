@@ -42,6 +42,9 @@ services:
       # Browser-facing origin of the public site (trustedOrigins + links in
       # verification / password-reset emails). Must match WEB_DOMAIN.
       WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-http://104.36.69.86}
+      # 안내 챗봇. GEMINI_API_KEY 없으면 위젯은 "설정 안 됨" 안내만 한다.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       # Outgoing mail for delegate sign-up. Leave SMTP_HOST empty to log links instead.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

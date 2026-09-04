@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   pgEnum,
   pgTable,
@@ -157,23 +158,28 @@ export const faqs = pgTable("faqs", {
 /*  Chat logs (안내 챗봇 질문-답변 기록 — 오답 패턴 점검·FAQ 보강용)   */
 /* ------------------------------------------------------------------ */
 
-export const chatLogs = pgTable("chat_logs", {
-  id: id(),
-  /** 방문자가 입력한 마지막 질문 (대화 이력 전체는 저장하지 않는다). */
-  question: text("question").notNull(),
-  /** 챗봇이 돌려준 답변. answered가 아니면 안내 문구. */
-  answer: text("answer").notNull().default(""),
-  /**
-   * answered  — 모델이 답변함
-   * blocked   — 모델 안전 필터에 막힘
-   * error     — 업스트림(Gemini) 오류
-   * unavailable — API 키 미설정
-   */
-  outcome: text("outcome").notNull().default("answered"),
-  /** 검색으로 <context>에 들어간 FAQ 수. 0이면 근거 없이 답한 것 — 점검 대상. */
-  faqHits: integer("faq_hits").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const chatLogs = pgTable(
+  "chat_logs",
+  {
+    id: id(),
+    /** 방문자가 입력한 마지막 질문 (대화 이력 전체는 저장하지 않는다). */
+    question: text("question").notNull(),
+    /** 챗봇이 돌려준 답변. answered가 아니면 안내 문구. */
+    answer: text("answer").notNull().default(""),
+    /**
+     * answered  — 모델이 답변함
+     * blocked   — 모델 안전 필터에 막힘
+     * error     — 업스트림(Gemini) 오류
+     * unavailable — API 키 미설정
+     */
+    outcome: text("outcome").notNull().default("answered"),
+    /** 검색으로 <context>에 들어간 FAQ 수. 0이면 근거 없이 답한 것 — 점검 대상. */
+    faqHits: integer("faq_hits").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // 목록은 최신순 정렬, 보관 정리는 오래된 것부터 지운다 — 둘 다 이 인덱스를 쓴다.
+  (t) => [index("chat_logs_created_at_idx").on(t.createdAt)],
+);
 
 /* ------------------------------------------------------------------ */
 /*  Schedule                                                           */

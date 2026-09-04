@@ -103,7 +103,7 @@ export function AnimeScrollbar() {
   );
 
   return (
-    <div className="fixed bottom-5 right-1/2 z-50 translate-x-1/2 flex-col overflow-hidden rounded-2xl sm:right-5 sm:translate-x-0">
+    <div className="fixed bottom-5 right-1/2 z-40 translate-x-1/2 flex-col overflow-hidden rounded-2xl sm:right-24 sm:translate-x-0">
       <motion.div className="cursor-grab rounded-xl border border-line bg-white px-5 shadow-sm will-change-transform">
         <div ref={scrollBarWrapperRef}>
           <div
