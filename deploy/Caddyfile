@@ -28,8 +28,17 @@
 
 {$API_DOMAIN} {
 	encode zstd gzip
-	request_body {
-		max_size 30MB
+	# the chatbot takes small JSON only — cap it before the 30MB upload limit applies
+	handle /api/public/chat {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy api:4000
 	}
-	reverse_proxy api:4000
+	handle {
+		request_body {
+			max_size 30MB
+		}
+		reverse_proxy api:4000
+	}
 }
