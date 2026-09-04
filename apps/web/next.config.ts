@@ -22,6 +22,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/uploads/:path*", destination: `${API_URL}/uploads/:path*` },
       { source: "/api/auth/:path*", destination: `${API_URL}/api/auth/:path*` },
+      { source: "/api/presence", destination: `${API_URL}/api/public/presence` },
     ];
   },
 };

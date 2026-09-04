@@ -119,6 +119,7 @@ export const resolutionStatus = pgEnum("resolution_status", [
   "approved",
   "review",
   "awaiting",
+  "published",
 ]);
 
 export const resolutions = pgTable("resolutions", {

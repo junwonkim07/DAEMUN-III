@@ -9,7 +9,7 @@ import { InlineText } from "@/components/inline-edit";
 
 function msg(err: unknown): string | null {
   if (!err) return null;
-  return err instanceof ApiError ? err.message : "저장에 실패했습니다.";
+  return err instanceof ApiError ? err.message : "Save failed.";
 }
 
 export function ScheduleBoard({ site }: { site: SiteData }) {
@@ -19,8 +19,8 @@ export function ScheduleBoard({ site }: { site: SiteData }) {
     <div className="space-y-5">
       {site.schedule.length === 0 && (
         <p className="text-sm text-neutral-400">
-          아직 등록된 날짜가 없습니다. 날짜를 추가하면 홈 화면에 일정 섹션이
-          나타납니다.
+          No dates yet. Adding a date makes the schedule section appear on
+          the homepage.
         </p>
       )}
 
@@ -37,7 +37,7 @@ export function ScheduleBoard({ site }: { site: SiteData }) {
           }
           className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-800 disabled:opacity-50"
         >
-          + 날짜 추가
+          + Add date
         </button>
         {create.error && (
           <p className="mt-1 text-xs text-red-600">{msg(create.error)}</p>
@@ -77,21 +77,21 @@ function DayCard({
     <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
       <header className="flex items-start gap-3 border-b border-neutral-200 bg-neutral-50 p-4">
         <div className="min-w-0 flex-1 space-y-1.5">
-          <Labeled label="요일 라벨">
+          <Labeled label="Day label">
             <InlineText
-              ariaLabel="요일 라벨"
+              ariaLabel="Day label"
               value={day.day}
-              placeholder="예: Day One"
+              placeholder="e.g. Day One"
               pending={update.isPending}
               className="font-semibold"
               onCommit={(v) => patch({ day: v })}
             />
           </Labeled>
-          <Labeled label="날짜 (미정이면 비워두면 TBA)">
+          <Labeled label="Date (leave blank for TBA)">
             <InlineText
-              ariaLabel="날짜"
+              ariaLabel="Date"
               value={day.date}
-              placeholder="예: 2025년 10월 4일 (토)"
+              placeholder="e.g. Saturday, October 4, 2025"
               pending={update.isPending}
               className="text-xs"
               onCommit={(v) => patch({ date: v || "TBA" })}
@@ -100,24 +100,24 @@ function DayCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={index <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="날짜 삭제"
+            label="Delete date"
             danger
             disabled={busy}
             onClick={() => {
               if (
                 window.confirm(
-                  `"${day.day}"을(를) 삭제하면 이 날짜의 일정 항목도 전부 삭제됩니다. 계속할까요?`,
+                  `Deleting "${day.day}" will also delete all its schedule items. Continue?`,
                 )
               )
                 remove.mutate(day.id);
@@ -141,21 +141,21 @@ function Items({ day }: { day: ScheduleDayWithItems }) {
   return (
     <div className="p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-neutral-500">일정 항목</span>
+        <span className="text-xs font-medium text-neutral-500">Schedule items</span>
         <button
           type="button"
           disabled={create.isPending}
-          onClick={() => create.mutate({ dayId: day.id, event: "새 일정" })}
+          onClick={() => create.mutate({ dayId: day.id, event: "New item" })}
           className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
         >
-          + 항목 추가
+          + Add item
         </button>
       </div>
       {create.error && (
         <p className="mb-2 text-xs text-red-600">{msg(create.error)}</p>
       )}
       {day.items.length === 0 ? (
-        <p className="text-xs text-neutral-400">항목 없음</p>
+        <p className="text-xs text-neutral-400">No items</p>
       ) : (
         <ul className="space-y-2">
           {day.items.map((it, i) => (
@@ -198,9 +198,9 @@ function ItemRow({
       <div className="flex items-start gap-2">
         <div className="w-28 shrink-0">
           <InlineText
-            ariaLabel="시간"
+            ariaLabel="Time"
             value={item.time}
-            placeholder="예: 09:30 (없으면 TBA)"
+            placeholder="e.g. 09:30 (leave blank for TBA)"
             pending={update.isPending}
             className="text-xs"
             onCommit={(v) => patch({ time: v || "TBA" })}
@@ -208,31 +208,31 @@ function ItemRow({
         </div>
         <div className="min-w-0 flex-1">
           <InlineText
-            ariaLabel="일정 내용"
+            ariaLabel="Event"
             value={item.event}
-            placeholder="일정 내용 (필수)"
+            placeholder="Event (required)"
             pending={update.isPending}
             className="font-medium"
             onCommit={(v) => patch({ event: v })}
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={index <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="항목 삭제"
+            label="Delete item"
             danger
             disabled={busy}
             onClick={() => {
-              if (window.confirm(`"${item.event}" 항목을 삭제할까요?`))
+              if (window.confirm(`Delete "${item.event}"?`))
                 remove.mutate(item.id);
             }}
           >

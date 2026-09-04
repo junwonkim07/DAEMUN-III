@@ -30,7 +30,7 @@ export function useUsers() {
       const { data, error } = await authClient.admin.listUsers({
         query: { limit: 500 },
       });
-      if (error) throw new Error(error.message ?? "계정 목록을 불러오지 못했습니다.");
+      if (error) throw new Error(error.message ?? "Failed to load accounts.");
       const users = (data?.users ?? []) as AdminUser[];
       return [...users].sort(
         (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
@@ -46,7 +46,7 @@ function useAdminMutation<V>(
   return useMutation({
     mutationFn: async (v: V) => {
       const { error } = await run(v);
-      if (error) throw new Error(error.message ?? "요청이 실패했습니다.");
+      if (error) throw new Error(error.message ?? "Request failed.");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: USERS_KEY }),
   });

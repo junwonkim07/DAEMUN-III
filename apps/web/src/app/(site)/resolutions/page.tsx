@@ -25,9 +25,10 @@ export const metadata = { title: "Resolutions" };
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 
 const STATUS_META: Record<ResolutionStatus, { label: string; tone: string }> = {
-  approved: { label: "Approved", tone: "border-[#1f6f45]/30 text-[#1f6f45]" },
-  review: { label: "Under review", tone: "border-gold/35 text-gold" },
   awaiting: { label: "Awaiting submission", tone: "border-line text-muted" },
+  review: { label: "Under review", tone: "border-gold/35 text-gold" },
+  approved: { label: "Approved — released at debate start", tone: "border-[#1f6f45]/30 text-[#1f6f45]" },
+  published: { label: "Published", tone: "border-[#1f6f45]/30 text-[#1f6f45]" },
 };
 
 /** skiper42 animated status icon with a skiper101 tooltip naming the status. */
@@ -43,7 +44,12 @@ function StatusIcon({ status }: { status: ResolutionStatus }) {
             meta.tone,
           )}
         >
-          {status === "approved" && <WorldIcon />}
+          {status === "published" && <WorldIcon />}
+          {status === "approved" && (
+            <span className="text-[13px] font-semibold" aria-hidden>
+              ✓
+            </span>
+          )}
           {status === "review" && (
             <SpinnerIcon size={16} color="var(--color-gold)" />
           )}
@@ -83,7 +89,7 @@ function TopicRow({
 }) {
   const status: ResolutionStatus = entry?.status ?? "awaiting";
   const numeral = ROMAN[index] ?? String(index + 1);
-  const hasDocument = entry?.status === "approved" && entry.document;
+  const hasDocument = entry?.status === "published" && entry.document;
 
   return (
     <li

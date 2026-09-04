@@ -24,7 +24,7 @@ const MUN_LABEL = Object.fromEntries(
 );
 
 function fmtDate(d: string | Date) {
-  return new Date(d).toLocaleDateString("ko-KR");
+  return new Date(d).toLocaleDateString("en-GB");
 }
 
 export function AccountsBoard({ users }: { users: AdminUser[] }) {
@@ -35,9 +35,9 @@ export function AccountsBoard({ users }: { users: AdminUser[] }) {
     <div className="space-y-8">
       <section>
         <div className="mb-2 flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold">관리자</h2>
+          <h2 className="text-sm font-semibold">Admins</h2>
           <span className="text-xs text-neutral-400">
-            패널 접근 가능 ({admins.length})
+            Have panel access ({admins.length})
           </span>
         </div>
         <div className="space-y-2">
@@ -50,13 +50,13 @@ export function AccountsBoard({ users }: { users: AdminUser[] }) {
 
       <section>
         <div className="mb-2 flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold">참가자</h2>
+          <h2 className="text-sm font-semibold">Delegates</h2>
           <span className="text-xs text-neutral-400">
-            셀프 가입 delegate ({delegates.length})
+            Self-registered delegates ({delegates.length})
           </span>
         </div>
         {delegates.length === 0 ? (
-          <p className="text-sm text-neutral-400">아직 없음</p>
+          <p className="text-sm text-neutral-400">None yet</p>
         ) : (
           <div className="space-y-2">
             {delegates.map((u) => (
@@ -92,39 +92,39 @@ function UserRow({ user }: { user: AdminUser }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">
-              {user.name || "(이름 없음)"}
+              {user.name || "(no name)"}
             </span>
             {!user.emailVerified && (
-              <Badge tone="amber">이메일 미인증</Badge>
+              <Badge tone="amber">Email unverified</Badge>
             )}
-            {user.banned && <Badge tone="red">차단됨</Badge>}
-            {isSelf && <Badge tone="neutral">나</Badge>}
+            {user.banned && <Badge tone="red">Banned</Badge>}
+            {isSelf && <Badge tone="neutral">You</Badge>}
           </div>
           <div className="truncate text-xs text-neutral-500">{user.email}</div>
         </div>
 
         <span className="text-xs text-neutral-400">
-          가입 {fmtDate(user.createdAt)}
+          Joined {fmtDate(user.createdAt)}
         </span>
 
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             disabled={busy || isSelf}
-            title={isSelf ? "자기 역할은 바꿀 수 없습니다" : undefined}
+            title={isSelf ? "You can't change your own role" : undefined}
             onClick={() => {
               const next = isAdmin ? "delegate" : "admin";
               if (
                 window.confirm(
-                  `${user.email} 역할을 "${next}"로 바꿀까요?` +
-                    (next === "admin" ? " (패널 전체 접근 권한이 생깁니다)" : ""),
+                  `Change ${user.email}'s role to "${next}"?` +
+                    (next === "admin" ? " (grants full panel access)" : ""),
                 )
               )
                 setRole.mutate({ userId: user.id, role: next });
             }}
             className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-40"
           >
-            {isAdmin ? "→ 참가자로" : "→ 관리자로"}
+            {isAdmin ? "→ Make delegate" : "→ Make admin"}
           </button>
 
           {user.banned ? (
@@ -134,20 +134,20 @@ function UserRow({ user }: { user: AdminUser }) {
               onClick={() => unban.mutate({ userId: user.id })}
               className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-40"
             >
-              차단 해제
+              Unban
             </button>
           ) : (
             <button
               type="button"
               disabled={busy || isSelf}
-              title={isSelf ? "자기 계정은 차단할 수 없습니다" : undefined}
+              title={isSelf ? "You can't ban your own account" : undefined}
               onClick={() => {
-                if (window.confirm(`${user.email}을(를) 차단할까요? (로그인 차단)`))
+                if (window.confirm(`Ban ${user.email}? (blocks sign-in)`))
                   ban.mutate({ userId: user.id });
               }}
               className="rounded border border-neutral-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-40"
             >
-              차단
+              Ban
             </button>
           )}
         </div>
@@ -155,10 +155,10 @@ function UserRow({ user }: { user: AdminUser }) {
 
       {(user.grade || user.committee || user.munExperience) && (
         <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-500">
-          {user.grade && <span>학년: {GRADE_LABEL[user.grade] ?? user.grade}</span>}
-          {user.committee && <span>위원회: {user.committee}</span>}
+          {user.grade && <span>Grade: {GRADE_LABEL[user.grade] ?? user.grade}</span>}
+          {user.committee && <span>Committee: {user.committee}</span>}
           {user.munExperience && (
-            <span>경험: {MUN_LABEL[user.munExperience] ?? user.munExperience}</span>
+            <span>Experience: {MUN_LABEL[user.munExperience] ?? user.munExperience}</span>
           )}
         </div>
       )}
@@ -181,7 +181,7 @@ function AddAdmin() {
         onClick={() => setOpen(true)}
         className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-800"
       >
-        + 관리자 추가
+        + Add admin
       </button>
     );
   }
@@ -204,12 +204,12 @@ function AddAdmin() {
       }}
       className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3"
     >
-      <p className="text-xs font-medium text-neutral-600">새 관리자 계정</p>
+      <p className="text-xs font-medium text-neutral-600">New admin account</p>
       <div className="grid gap-2 sm:grid-cols-3">
         <input
           type="email"
           required
-          placeholder="이메일"
+          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="rounded border border-neutral-300 px-2 py-1 text-sm"
@@ -217,7 +217,7 @@ function AddAdmin() {
         <input
           type="text"
           required
-          placeholder="이름"
+          placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="rounded border border-neutral-300 px-2 py-1 text-sm"
@@ -226,7 +226,7 @@ function AddAdmin() {
           type="password"
           required
           minLength={8}
-          placeholder="비밀번호 (8자 이상)"
+          placeholder="Password (8+ characters)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="new-password"
@@ -234,7 +234,7 @@ function AddAdmin() {
         />
       </div>
       <p className="text-[11px] text-neutral-400">
-        이메일 인증 없이 바로 로그인 가능한 계정으로 만들어집니다.
+        Created ready to sign in immediately, without email verification.
       </p>
       {create.error && (
         <p className="text-xs text-red-600">
@@ -247,14 +247,14 @@ function AddAdmin() {
           disabled={create.isPending}
           className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
         >
-          {create.isPending ? "생성 중…" : "생성"}
+          {create.isPending ? "Creating…" : "Create"}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
           className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs"
         >
-          취소
+          Cancel
         </button>
       </div>
     </form>

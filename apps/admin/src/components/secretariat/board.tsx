@@ -19,19 +19,19 @@ export function SecretariatBoard({ site }: { site: SiteData }) {
 
   return (
     <div className="space-y-8">
-      <Section title="사무총장" hint="Director-General — 1명">
+      <Section title="Director-General" hint="1 person">
         {director ? (
           <PersonCard person={director} siblings={[director]} />
         ) : (
-          <AddPerson section="director" label="사무총장 추가" />
+          <AddPerson section="director" label="Add Director-General" />
         )}
       </Section>
 
-      <Section title="집행부" hint="Executives">
+      <Section title="Executives">
         <PeopleList people={executives} section="executive" />
       </Section>
 
-      <Section title="부서" hint="Departments — 이름·소개·부원">
+      <Section title="Departments" hint="Name, description, members">
         <Departments departments={departments} />
       </Section>
     </div>
@@ -79,7 +79,7 @@ function PeopleList({
       <AddPerson
         section={section}
         departmentId={departmentId}
-        label={section === "department" ? "부원 추가" : "인물 추가"}
+        label={section === "department" ? "Add member" : "Add person"}
       />
     </div>
   );
@@ -102,7 +102,7 @@ function AddPerson({
         disabled={create.isPending}
         onClick={() =>
           create.mutate({
-            name: "새 인물",
+            name: "New Person",
             role: "",
             section,
             departmentId: departmentId ?? null,
@@ -156,17 +156,17 @@ function PersonCard({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <InlineText
-              ariaLabel="이름"
+              ariaLabel="Name"
               value={person.name}
-              placeholder="이름"
+              placeholder="Name"
               pending={update.isPending}
               onCommit={(name) => update.mutateAsync({ id: person.id, patch: { name } })}
               className="text-[15px] font-medium"
             />
             <InlineText
-              ariaLabel="직책"
+              ariaLabel="Role"
               value={person.role}
-              placeholder="직책 (예: Deputy Secretary-General)"
+              placeholder="e.g. Deputy Secretary-General"
               pending={update.isPending}
               onCommit={(role) => update.mutateAsync({ id: person.id, patch: { role } })}
               className="text-xs text-neutral-500"
@@ -174,18 +174,18 @@ function PersonCard({
           </div>
 
           <div className="flex shrink-0 items-center gap-0.5">
-            <IconButton label="위로" disabled={!canUp || busy} onClick={() => move(-1)}>
+            <IconButton label="Move up" disabled={!canUp || busy} onClick={() => move(-1)}>
               ↑
             </IconButton>
-            <IconButton label="아래로" disabled={!canDown || busy} onClick={() => move(1)}>
+            <IconButton label="Move down" disabled={!canDown || busy} onClick={() => move(1)}>
               ↓
             </IconButton>
             <IconButton
-              label="삭제"
+              label="Delete"
               danger
               disabled={busy}
               onClick={() => {
-                if (window.confirm(`"${person.name}" 삭제할까요?`))
+                if (window.confirm(`Delete "${person.name}"?`))
                   remove.mutate(person.id);
               }}
             >
@@ -195,11 +195,11 @@ function PersonCard({
         </div>
 
         <div>
-          <label className="text-[11px] text-neutral-400">인사말 (빈 줄로 문단 구분)</label>
+          <label className="text-[11px] text-neutral-400">Greeting (blank line separates paragraphs)</label>
           <InlineTextarea
-            ariaLabel="인사말"
+            ariaLabel="Greeting"
             value={person.greeting ?? ""}
-            placeholder="인사말 — 비워두면 사이트에 표시되지 않음"
+            placeholder="Greeting — leave blank to hide from the site"
             pending={update.isPending}
             onCommit={(greeting) =>
               update.mutateAsync({ id: person.id, patch: { greeting: greeting || null } })
@@ -231,11 +231,11 @@ function PhotoCell({ person }: { person: Person }) {
     setLocalErr(null);
     if (!file) return;
     if (!/\.(jpe?g|png|webp)$/i.test(file.name)) {
-      setLocalErr("이미지(jpg/png/webp)만");
+      setLocalErr("Images only (jpg/png/webp)");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setLocalErr("25MB를 넘는 파일은 올릴 수 없습니다");
+      setLocalErr("Files over 25MB cannot be uploaded");
       return;
     }
     upload.mutate({ id: person.id, file });
@@ -253,7 +253,7 @@ function PhotoCell({ person }: { person: Person }) {
           />
         ) : (
           <div className="flex h-full items-center justify-center text-[10px] text-neutral-400">
-            사진 없음
+            No photo
           </div>
         )}
       </div>
@@ -264,7 +264,7 @@ function PhotoCell({ person }: { person: Person }) {
         className="hidden"
         onChange={(e) => {
           pick(e.target.files?.[0]);
-          // 같은 파일을 다시 고를 때도 change가 나도록 비운다
+          // Clear so selecting the same file again still fires a change
           e.target.value = "";
         }}
       />
@@ -275,19 +275,19 @@ function PhotoCell({ person }: { person: Person }) {
           onClick={() => inputRef.current?.click()}
           className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
         >
-          {upload.isPending ? "업로드…" : person.photo ? "교체" : "업로드"}
+          {upload.isPending ? "Uploading…" : person.photo ? "Replace" : "Upload"}
         </button>
         {person.photo && (
           <button
             type="button"
             disabled={busy}
             onClick={() => {
-              if (window.confirm(`"${person.name}" 사진을 삭제할까요?`))
+              if (window.confirm(`Delete ${person.name}'s photo?`))
                 update.mutate({ id: person.id, patch: { photo: null } });
             }}
             className="text-neutral-400 hover:text-red-600 disabled:opacity-50"
           >
-            삭제
+            Delete
           </button>
         )}
       </div>
@@ -314,10 +314,10 @@ function Departments({
       <button
         type="button"
         disabled={create.isPending}
-        onClick={() => create.mutate({ name: "새 부서", blurb: "" })}
+        onClick={() => create.mutate({ name: "New Department", blurb: "" })}
         className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-800 disabled:opacity-50"
       >
-        + 부서 추가
+        + Add department
       </button>
       {create.error && (
         <p className="text-xs text-red-600">{(create.error as Error).message}</p>
@@ -355,43 +355,43 @@ function DepartmentCard({
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <InlineText
-            ariaLabel="부서 이름"
+            ariaLabel="Department name"
             value={department.name}
-            placeholder="부서 이름"
+            placeholder="Department name"
             pending={update.isPending}
             onCommit={(name) => update.mutateAsync({ id: department.id, patch: { name } })}
             className="text-sm font-semibold"
           />
           <InlineTextarea
-            ariaLabel="부서 소개"
+            ariaLabel="Department description"
             value={department.blurb}
-            placeholder="부서 소개"
+            placeholder="Department description"
             rows={2}
             pending={update.isPending}
             onCommit={(blurb) => update.mutateAsync({ id: department.id, patch: { blurb } })}
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={idx <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={idx <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={idx < 0 || idx >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="부서 삭제"
+            label="Delete department"
             danger
             disabled={busy}
             onClick={() => {
               const n = department.members.length;
               const msg =
                 n > 0
-                  ? `"${department.name}" 부서와 소속 부원 ${n}명을 함께 삭제할까요? 되돌릴 수 없습니다.`
-                  : `"${department.name}" 부서를 삭제할까요?`;
+                  ? `Delete the "${department.name}" department along with its ${n} member(s)? This cannot be undone.`
+                  : `Delete the "${department.name}" department?`;
               if (window.confirm(msg))
                 remove.mutate({
                   id: department.id,
@@ -457,10 +457,10 @@ function StatusLine({ busy, err }: { busy: boolean; err: Error | null }) {
   if (!busy && !err) return null;
   return (
     <p className="text-[11px]">
-      {busy && <span className="text-neutral-400">저장 중…</span>}
+      {busy && <span className="text-neutral-400">Saving…</span>}
       {err && (
         <span className="text-red-600">
-          {err instanceof ApiError ? err.message : "저장 실패"}
+          {err instanceof ApiError ? err.message : "Save failed"}
         </span>
       )}
     </p>

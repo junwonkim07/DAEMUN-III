@@ -17,7 +17,7 @@ const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 
 function msg(err: unknown): string | null {
   if (!err) return null;
-  return err instanceof ApiError ? err.message : "저장에 실패했습니다.";
+  return err instanceof ApiError ? err.message : "Save failed.";
 }
 
 export function CommitteesBoard({ site }: { site: SiteData }) {
@@ -41,12 +41,12 @@ export function CommitteesBoard({ site }: { site: SiteData }) {
             create.mutate({
               slug: `committee-${site.committees.length + 1}`,
               code: "NEW",
-              name: "새 위원회",
+              name: "New Committee",
             })
           }
           className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-800 disabled:opacity-50"
         >
-          + 위원회 추가
+          + Add committee
         </button>
         {create.error && (
           <p className="mt-1 text-xs text-red-600">{msg(create.error)}</p>
@@ -90,26 +90,26 @@ function CommitteeCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex gap-2">
             <InlineText
-              ariaLabel="약칭 (탭 라벨)"
+              ariaLabel="Code (tab label)"
               value={committee.code}
-              placeholder="약칭 (예: ECOSOC)"
+              placeholder="e.g. ECOSOC"
               pending={update.isPending}
               className="w-28 border-neutral-300 font-semibold"
               onCommit={(code) => patch({ code })}
             />
             <InlineText
-              ariaLabel="정식 명칭"
+              ariaLabel="Full name"
               value={committee.name}
-              placeholder="정식 명칭"
+              placeholder="Full name"
               pending={update.isPending}
               className="flex-1 border-neutral-300"
               onCommit={(name) => patch({ name })}
             />
           </div>
           <InlineText
-            ariaLabel="슬러그"
+            ariaLabel="Slug"
             value={committee.slug}
-            placeholder="슬러그 (URL·결의안 키, 영소문자·숫자·하이픈)"
+            placeholder="Slug (URL/resolution key, lowercase letters, digits, hyphens)"
             pending={update.isPending}
             className="border-neutral-300 text-xs"
             onCommit={(slug) => patch({ slug })}
@@ -117,24 +117,24 @@ function CommitteeCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={index <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="위원회 삭제"
+            label="Delete committee"
             danger
             disabled={busy}
             onClick={() => {
               if (
                 window.confirm(
-                  `"${committee.name}" 위원회를 삭제하면 소속 의제와 결의안도 전부 삭제됩니다. 계속할까요?`,
+                  `Deleting "${committee.name}" will also delete its topics and resolutions. Continue?`,
                 )
               )
                 remove.mutate(committee.id);
@@ -146,30 +146,30 @@ function CommitteeCard({
       </header>
 
       <div className="space-y-3 border-b border-neutral-100 p-4">
-        <Labeled label="소개">
+        <Labeled label="Description">
           <InlineTextarea
-            ariaLabel="소개"
+            ariaLabel="Description"
             value={committee.description}
-            placeholder="위원회 소개 (한 문단)"
+            placeholder="Committee description (one paragraph)"
             rows={2}
             pending={update.isPending}
             onCommit={(description) => patch({ description })}
           />
         </Labeled>
         <div className="flex gap-3">
-          <Labeled label="출처 링크 텍스트" className="flex-1">
+          <Labeled label="Source link text" className="flex-1">
             <InlineText
-              ariaLabel="출처 링크 텍스트"
+              ariaLabel="Source link text"
               value={committee.sourceLabel ?? ""}
-              placeholder="예: ecosoc.un.org"
+              placeholder="e.g. ecosoc.un.org"
               pending={update.isPending}
               className="border-neutral-300"
               onCommit={(v) => patch({ sourceLabel: v || null })}
             />
           </Labeled>
-          <Labeled label="출처 링크 URL" className="flex-1">
+          <Labeled label="Source link URL" className="flex-1">
             <InlineText
-              ariaLabel="출처 링크 URL"
+              ariaLabel="Source link URL"
               value={committee.sourceUrl ?? ""}
               placeholder="https://…"
               pending={update.isPending}
@@ -197,11 +197,11 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
     setLocalErr(null);
     if (!file) return;
     if (!/\.(jpe?g|png|webp)$/i.test(file.name)) {
-      setLocalErr("이미지(jpg/png/webp)만");
+      setLocalErr("Images only (jpg/png/webp)");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setLocalErr("25MB 초과");
+      setLocalErr("Exceeds 25MB");
       return;
     }
     upload.mutate({ id: committee.id, file });
@@ -215,7 +215,7 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
           <img src={committee.image} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center text-[10px] text-neutral-400">
-            배경 없음
+            No image
           </div>
         )}
       </div>
@@ -236,7 +236,7 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
           onClick={() => inputRef.current?.click()}
           className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
         >
-          {upload.isPending ? "업로드…" : committee.image ? "교체" : "배경 업로드"}
+          {upload.isPending ? "Uploading…" : committee.image ? "Replace" : "Upload image"}
         </button>
         {committee.image && (
           <button
@@ -245,7 +245,7 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
             onClick={() => update.mutate({ id: committee.id, patch: { image: null } })}
             className="text-neutral-400 hover:text-red-600 disabled:opacity-50"
           >
-            삭제
+            Delete
           </button>
         )}
       </div>
@@ -268,21 +268,21 @@ function Topics({ committee }: { committee: CommitteeWithTopics }) {
   return (
     <div className="p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium text-neutral-500">의제</span>
+        <span className="text-xs font-medium text-neutral-500">Topics</span>
         <button
           type="button"
           disabled={create.isPending}
           onClick={() => create.mutate({ committeeId: committee.id })}
           className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
         >
-          + 의제 추가
+          + Add topic
         </button>
       </div>
       {create.error && (
         <p className="mb-2 text-xs text-red-600">{msg(create.error)}</p>
       )}
       {committee.topics.length === 0 ? (
-        <p className="text-xs text-neutral-400">의제 없음</p>
+        <p className="text-xs text-neutral-400">No topics</p>
       ) : (
         <ul className="space-y-2">
           {committee.topics.map((t, i) => (
@@ -331,17 +331,17 @@ function TopicRow({
         <span className="pt-1.5 text-xs italic text-neutral-400">{numeral}</span>
         <div className="min-w-0 flex-1 space-y-1">
           <InlineText
-            ariaLabel="의제 제목"
+            ariaLabel="Topic title"
             value={topic.title}
-            placeholder="의제 제목 (미정이면 TBA)"
+            placeholder="Topic title (TBA if not yet set)"
             pending={update.isPending}
             className="font-medium"
             onCommit={(title) => update.mutateAsync({ id: topic.id, patch: { title } })}
           />
           <InlineTextarea
-            ariaLabel="의제 개요"
+            ariaLabel="Topic summary"
             value={topic.summary}
-            placeholder="개요 (비우면 사이트에서 숨김)"
+            placeholder="Summary (leave blank to hide from the site)"
             rows={2}
             pending={update.isPending}
             onCommit={(summary) =>
@@ -351,24 +351,24 @@ function TopicRow({
           <ReportCell topic={topic} />
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={index <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="의제 삭제"
+            label="Delete topic"
             danger
             disabled={busy}
             onClick={() => {
               if (
                 window.confirm(
-                  `"${topic.title}" 의제를 삭제하면 이 의제의 결의안도 삭제됩니다. 계속할까요?`,
+                  `Deleting "${topic.title}" will also delete its resolutions. Continue?`,
                 )
               )
                 remove.mutate(topic.id);
@@ -394,11 +394,11 @@ function ReportCell({ topic }: { topic: Topic }) {
     setLocalErr(null);
     if (!file) return;
     if (!/\.(pdf|docx?)$/i.test(file.name)) {
-      setLocalErr("PDF/DOC만");
+      setLocalErr("PDF/DOC only");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setLocalErr("25MB 초과");
+      setLocalErr("Exceeds 25MB");
       return;
     }
     upload.mutate({ id: topic.id, file });
@@ -406,7 +406,7 @@ function ReportCell({ topic }: { topic: Topic }) {
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="text-neutral-400">의장 보고서</span>
+      <span className="text-neutral-400">Chair report</span>
       <input
         ref={inputRef}
         type="file"
@@ -425,7 +425,7 @@ function ReportCell({ topic }: { topic: Topic }) {
             rel="noreferrer"
             className="rounded border border-neutral-300 px-2 py-0.5 font-medium text-neutral-700 hover:bg-white"
           >
-            보기
+            View
           </a>
           <button
             type="button"
@@ -433,7 +433,7 @@ function ReportCell({ topic }: { topic: Topic }) {
             onClick={() => inputRef.current?.click()}
             className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
           >
-            {upload.isPending ? "업로드 중…" : "교체"}
+            {upload.isPending ? "Uploading…" : "Replace"}
           </button>
           <button
             type="button"
@@ -441,7 +441,7 @@ function ReportCell({ topic }: { topic: Topic }) {
             onClick={() => update.mutate({ id: topic.id, patch: { report: null } })}
             className="text-neutral-400 hover:text-red-600 disabled:opacity-50"
           >
-            삭제
+            Delete
           </button>
         </>
       ) : (
@@ -451,7 +451,7 @@ function ReportCell({ topic }: { topic: Topic }) {
           onClick={() => inputRef.current?.click()}
           className="rounded border border-dashed border-neutral-300 px-2 py-0.5 text-neutral-500 hover:border-neutral-400 hover:text-neutral-800 disabled:opacity-50"
         >
-          {upload.isPending ? "업로드 중…" : "PDF 업로드 (비우면 '9월 공개')"}
+          {upload.isPending ? "Uploading…" : "Upload PDF (leave empty to show 'Released in September')"}
         </button>
       )}
       {(localErr || upload.error || update.error) && (

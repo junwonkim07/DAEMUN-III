@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq, sql } from "drizzle-orm";
 import {
   committeeCreateSchema,
   committeeUpdateSchema,
@@ -33,10 +33,13 @@ import {
   scheduleDays,
   scheduleItems,
   topics,
+  user,
 } from "@daemun/db";
 import { db } from "../db";
 import { crudRoutes } from "../lib/crud";
+import { onlineCount } from "../lib/presence";
 import { revalidateWeb } from "../lib/revalidate";
+import { systemStats } from "../lib/system";
 import { requireAdmin } from "../middleware/auth";
 import { buildSiteData } from "./public";
 import { uploadRoutes } from "./uploads";
@@ -73,6 +76,37 @@ export const adminRoutes = new Hono()
 
   /* -- preview: exactly what the public site will receive ------------ */
   .get("/site", async (c) => c.json(await buildSiteData()))
+
+  /* -- overview numbers: live visitors, resolution pipeline, accounts, host -- */
+  .get("/stats", async (c) => {
+    const [byStatus, byRole, system] = await Promise.all([
+      db
+        .select({ status: resolutions.status, n: count() })
+        .from(resolutions)
+        .groupBy(resolutions.status),
+      db
+        .select({ role: sql<string>`coalesce(${user.role}, '')`, n: count() })
+        .from(user)
+        .groupBy(sql`coalesce(${user.role}, '')`),
+      systemStats(),
+    ]);
+    const statusCounts = { awaiting: 0, review: 0, approved: 0, published: 0 };
+    for (const r of byStatus) statusCounts[r.status] = Number(r.n);
+    const roleCounts: Record<string, number> = {};
+    for (const r of byRole) roleCounts[r.role] = Number(r.n);
+    const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+    return c.json({
+      online: onlineCount(),
+      resolutions: { ...statusCounts, total: sum(statusCounts) },
+      accounts: {
+        participants: roleCounts["delegate"] ?? 0,
+        admins: roleCounts["admin"] ?? 0,
+        total: sum(roleCounts),
+      },
+      system,
+      generatedAt: new Date().toISOString(),
+    });
+  })
 
   /* -- content tables ------------------------------------------------ */
   .route(

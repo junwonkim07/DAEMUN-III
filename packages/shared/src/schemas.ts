@@ -141,7 +141,12 @@ export type CommitteeWithTopics = Committee & { topics: Topic[] };
 /*  Resolutions                                                        */
 /* ------------------------------------------------------------------ */
 
-export const resolutionStatusSchema = z.enum(["approved", "review", "awaiting"]);
+/**
+ * awaiting → review → approved → published.
+ * `approved` = passed the approval panel but still hidden from delegates;
+ * `published` = released to the public site (13:00 debate start).
+ */
+export const resolutionStatusSchema = z.enum(["awaiting", "review", "approved", "published"]);
 export type ResolutionStatus = z.infer<typeof resolutionStatusSchema>;
 
 export const resolutionSchema = z.object({

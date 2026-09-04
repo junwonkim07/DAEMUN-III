@@ -1,4 +1,7 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import { heartbeat } from "../lib/presence";
 import { asc, eq } from "drizzle-orm";
 import { defaultSite, type Person, type SiteData } from "@daemun/shared";
 import {
@@ -78,7 +81,7 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
     const slug = slugById.get(r.committeeId);
     if (!slug) continue;
     const { createdAt: _c, ...rest } = r;
-    const hideDocument = opts.publicView && r.status !== "approved";
+    const hideDocument = opts.publicView && r.status !== "published";
     resolutionsBySlug[slug]!.push({
       ...rest,
       document: hideDocument ? null : r.document,
@@ -117,8 +120,16 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
   };
 }
 
-export const publicRoutes = new Hono().get("/site", async (c) => {
-  const data = await buildSiteData({ publicView: true });
-  c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
-  return c.json(data);
-});
+const presenceSchema = z.object({ id: z.string().min(8).max(64) });
+
+export const publicRoutes = new Hono()
+  .get("/site", async (c) => {
+    const data = await buildSiteData({ publicView: true });
+    c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+    return c.json(data);
+  })
+  /** Visitor heartbeat for the admin "online now" counter (see lib/presence.ts). */
+  .post("/presence", zValidator("json", presenceSchema), (c) => {
+    heartbeat(c.req.valid("json").id);
+    return c.body(null, 204);
+  });

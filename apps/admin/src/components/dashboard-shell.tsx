@@ -8,14 +8,14 @@ import { signOut, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
 
 const NAV = [
-  { href: "/dashboard", label: "개요", exact: true },
-  { href: "/dashboard/resolutions", label: "결의안 현황판" },
-  { href: "/dashboard/secretariat", label: "사무국" },
-  { href: "/dashboard/conference", label: "회의 정보" },
-  { href: "/dashboard/committees", label: "위원회 · 의제" },
-  { href: "/dashboard/schedule", label: "일정" },
-  { href: "/dashboard/documents", label: "문서" },
-  { href: "/dashboard/accounts", label: "계정" },
+  { href: "/dashboard", label: "Overview", exact: true },
+  { href: "/dashboard/resolutions", label: "Resolutions" },
+  { href: "/dashboard/secretariat", label: "Secretariat" },
+  { href: "/dashboard/conference", label: "Conference" },
+  { href: "/dashboard/committees", label: "Committees & Topics" },
+  { href: "/dashboard/schedule", label: "Schedule" },
+  { href: "/dashboard/documents", label: "Documents" },
+  { href: "/dashboard/accounts", label: "Accounts" },
   { href: "/dashboard/faqs", label: "FAQ" },
 ];
 
@@ -37,7 +37,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     // 쿠키가 남아 있으므로 다음 사람이 이 세션을 이어받지 않게 여기서 멈춘다.
     const { error: signOutError } = await signOut();
     if (signOutError) {
-      window.alert(`로그아웃 실패: ${signOutError.message ?? "다시 시도하세요."}`);
+      window.alert(`Sign-out failed: ${signOutError.message ?? "Please try again."}`);
       return;
     }
     qc.clear(); // 다음 로그인 사용자에게 이전 데이터가 보이지 않도록
@@ -45,12 +45,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   if (isPending) {
-    return <p className="p-6 text-sm text-neutral-500">불러오는 중...</p>;
+    return <p className="p-6 text-sm text-neutral-500">Loading...</p>;
   }
   if (error) {
     return (
       <p className="p-6 text-sm text-red-600">
-        세션을 확인할 수 없습니다: {error.message}
+        Could not verify session: {error.message}
       </p>
     );
   }
@@ -61,15 +61,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (session.user.role !== "admin") {
     return (
       <div className="p-6 text-sm">
-        <p className="font-medium text-red-600">관리자 권한이 없는 계정입니다.</p>
+        <p className="font-medium text-red-600">This account does not have admin access.</p>
         <p className="mt-1 text-neutral-600">
-          {session.user.email} (role: {session.user.role ?? "없음"})
+          {session.user.email} (role: {session.user.role ?? "none"})
         </p>
         <button
           onClick={logout}
           className="mt-4 rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-50"
         >
-          다른 계정으로 로그인
+          Sign in with a different account
         </button>
       </div>
     );
@@ -80,7 +80,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white">
         <div className="border-b border-neutral-200 px-4 py-4">
           <p className="text-sm font-semibold">DAEMUN III</p>
-          <p className="text-xs text-neutral-500">관리자 패널</p>
+          <p className="text-xs text-neutral-500">Admin Panel</p>
         </div>
         <nav className="flex-1 space-y-0.5 p-2">
           {NAV.map((item) => {
@@ -111,7 +111,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             onClick={logout}
             className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
           >
-            로그아웃
+            Sign out
           </button>
         </div>
       </aside>
