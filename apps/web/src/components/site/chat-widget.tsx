@@ -99,7 +99,7 @@ export function ChatWidget() {
               <div
                 key={i}
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                  "max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-relaxed",
                   m.role === "user"
                     ? "ml-auto bg-brand text-white"
                     : "bg-wash text-body",
