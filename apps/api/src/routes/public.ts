@@ -25,6 +25,7 @@ import {
   ChatUpstreamError,
   generateReply,
 } from "../lib/chat";
+import { logChat } from "../lib/chat-log";
 import { renderFaqContext, searchFaqs } from "../lib/faq-search";
 import { rateLimit } from "../lib/rate-limit";
 
@@ -185,16 +186,23 @@ export const publicRoutes = new Hono()
 
     try {
       const reply = await generateReply(messages, systemPrompt);
+      logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits: hits.length });
       return c.json({ reply });
     } catch (err) {
       if (err instanceof ChatUnavailableError) {
-        return c.json(
-          { reply: "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요." },
-          503,
-        );
+        const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
+        logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits: hits.length });
+        return c.json({ reply }, 503);
       }
       if (err instanceof ChatUpstreamError) {
         console.warn("[chat] upstream:", err.message);
+        const blocked = err.message.startsWith("blocked:");
+        logChat({
+          question: lastUser,
+          answer: CHAT_FALLBACK,
+          outcome: blocked ? "blocked" : "error",
+          faqHits: hits.length,
+        });
         return c.json({ reply: CHAT_FALLBACK }, 502);
       }
       throw err;

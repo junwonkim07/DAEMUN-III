@@ -286,6 +286,25 @@ export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export const chatResponseSchema = z.object({ reply: str });
 export type ChatResponse = z.infer<typeof chatResponseSchema>;
 
+export const chatOutcomeSchema = z.enum([
+  "answered",
+  "blocked",
+  "error",
+  "unavailable",
+]);
+export type ChatOutcome = z.infer<typeof chatOutcomeSchema>;
+
+/** 관리자 화면이 읽는 질문-답변 로그 한 줄. */
+export const chatLogSchema = z.object({
+  id: str,
+  question: str,
+  answer: str,
+  outcome: chatOutcomeSchema,
+  faqHits: z.number().int(),
+  createdAt: z.string(),
+});
+export type ChatLog = z.infer<typeof chatLogSchema>;
+
 /* ------------------------------------------------------------------ */
 /*  Reorder                                                            */
 /* ------------------------------------------------------------------ */

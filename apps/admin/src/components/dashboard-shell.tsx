@@ -17,6 +17,7 @@ const NAV = [
   { href: "/dashboard/documents", label: "문서" },
   { href: "/dashboard/accounts", label: "계정" },
   { href: "/dashboard/faqs", label: "FAQ" },
+  { href: "/dashboard/chat-logs", label: "챗봇 로그" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
