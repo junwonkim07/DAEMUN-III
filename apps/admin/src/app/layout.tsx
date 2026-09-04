@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     default: "DAEMUN III Admin",
     template: "%s — DAEMUN III Admin",
   },
-  description: "DAEMUN III 컨퍼런스 관리자 패널",
+  description: "DAEMUN III conference admin panel",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -14,40 +14,40 @@ const GROUPS: {
   fields: { key: Field; label: string; help?: string; multiline?: boolean }[];
 }[] = [
   {
-    title: "기본",
+    title: "Basics",
     fields: [
-      { key: "name", label: "대회 이름", help: "예: DAEMUN III" },
-      { key: "org", label: "주최", help: "예: Daewon Model United Nations" },
-      { key: "session", label: "회차", help: "예: Third Session" },
-      { key: "dates", label: "일자", help: "미정이면 TBA" },
-      { key: "venue", label: "장소", help: "미정이면 TBA" },
-      { key: "firstHeld", label: "1회 개최", help: "예: November 2024" },
+      { key: "name", label: "Conference name", help: "e.g. DAEMUN III" },
+      { key: "org", label: "Organizer", help: "e.g. Daewon Model United Nations" },
+      { key: "session", label: "Session", help: "e.g. Third Session" },
+      { key: "dates", label: "Dates", help: "TBA if not yet set" },
+      { key: "venue", label: "Venue", help: "TBA if not yet set" },
+      { key: "firstHeld", label: "First held", help: "e.g. November 2024" },
     ],
   },
   {
-    title: "연락처 · 푸터",
+    title: "Contact & Footer",
     fields: [
-      { key: "email", label: "이메일", help: "미정이면 TBA" },
-      { key: "instagram", label: "인스타 핸들", help: "@ 없이. 미정이면 TBA" },
-      { key: "instagramUrl", label: "인스타 URL", help: "미설정이면 #" },
-      { key: "address", label: "주소", help: "미정이면 TBA" },
+      { key: "email", label: "Email", help: "TBA if not yet set" },
+      { key: "instagram", label: "Instagram handle", help: "Without @. TBA if not yet set" },
+      { key: "instagramUrl", label: "Instagram URL", help: "# if not set" },
+      { key: "address", label: "Address", help: "TBA if not yet set" },
     ],
   },
   {
-    title: "소개 (About)",
-    hint: "About/메인에 노출. 빈 줄로 문단 구분.",
+    title: "About",
+    hint: "Shown on the About/home page. Blank line separates paragraphs.",
     fields: [
-      { key: "aboutLead", label: "소개 리드", multiline: true },
-      { key: "aboutBody", label: "소개 본문", multiline: true },
+      { key: "aboutLead", label: "About lead", multiline: true },
+      { key: "aboutBody", label: "About body", multiline: true },
     ],
   },
   {
-    title: "주제 (Theme)",
-    hint: "메인 주제 배너에 노출. 빈 줄로 문단 구분.",
+    title: "Theme",
+    hint: "Shown on the main theme banner. Blank line separates paragraphs.",
     fields: [
-      { key: "theme", label: "주제 문구", help: "예: From Vulnerability to Voice" },
-      { key: "themeLead", label: "주제 리드", multiline: true },
-      { key: "themeBody", label: "주제 본문", multiline: true },
+      { key: "theme", label: "Theme statement", help: "e.g. From Vulnerability to Voice" },
+      { key: "themeLead", label: "Theme lead", multiline: true },
+      { key: "themeBody", label: "Theme body", multiline: true },
     ],
   },
 ];
@@ -104,10 +104,10 @@ export function ConferenceForm({ conference }: { conference: Conference }) {
 
       {update.error && (
         <p className="text-sm text-red-600">
-          저장 실패:{" "}
+          Save failed:{" "}
           {update.error instanceof ApiError
             ? update.error.message
-            : "다시 시도하세요."}
+            : "Please try again."}
         </p>
       )}
     </div>

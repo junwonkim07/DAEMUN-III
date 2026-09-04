@@ -17,12 +17,12 @@ const ACCEPT_RE = /\.(pdf|docx?|jpe?g|png|webp)$/i;
 
 function msg(err: unknown): string | null {
   if (!err) return null;
-  return err instanceof ApiError ? err.message : "저장에 실패했습니다.";
+  return err instanceof ApiError ? err.message : "Save failed.";
 }
 
 function validate(file: File): string | null {
-  if (!ACCEPT_RE.test(file.name)) return "PDF·DOC·이미지만 업로드할 수 있습니다.";
-  if (file.size > MAX_UPLOAD_BYTES) return "파일이 25MB를 넘습니다.";
+  if (!ACCEPT_RE.test(file.name)) return "Only PDF, DOC, and image files can be uploaded.";
+  if (file.size > MAX_UPLOAD_BYTES) return "File exceeds 25MB.";
   return null;
 }
 
@@ -46,7 +46,7 @@ export function DocumentsBoard({ site }: { site: SiteData }) {
     <div className="space-y-4">
       {site.documents.length === 0 && (
         <p className="text-sm text-neutral-400">
-          아직 등록된 문서가 없습니다. 파일을 올리면 목록에 추가됩니다.
+          No documents yet. Upload a file to add it to the list.
         </p>
       )}
 
@@ -78,7 +78,7 @@ export function DocumentsBoard({ site }: { site: SiteData }) {
           onClick={() => inputRef.current?.click()}
           className="rounded-md border border-dashed border-neutral-300 px-3 py-1.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-800 disabled:opacity-50"
         >
-          {create.isPending ? "업로드 중…" : "+ 문서 추가 (파일 업로드)"}
+          {create.isPending ? "Uploading…" : "+ Add document (upload file)"}
         </button>
         {(localErr || create.error) && (
           <p className="mt-1 text-xs text-red-600">
@@ -143,17 +143,17 @@ function DocumentRow({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1 space-y-1.5">
           <InlineText
-            ariaLabel="문서 제목"
+            ariaLabel="Document title"
             value={doc.title}
-            placeholder="문서 제목"
+            placeholder="Document title"
             pending={update.isPending}
             className="font-medium"
             onCommit={(v) => patch({ title: v })}
           />
           <InlineText
-            ariaLabel="한 줄 설명"
+            ariaLabel="One-line description"
             value={doc.blurb}
-            placeholder="한 줄 설명 (선택)"
+            placeholder="One-line description (optional)"
             pending={update.isPending}
             className="text-xs"
             onCommit={(v) => patch({ blurb: v })}
@@ -165,7 +165,7 @@ function DocumentRow({
               rel="noreferrer"
               className="rounded border border-neutral-300 px-2 py-0.5 font-medium text-neutral-700 hover:bg-neutral-50"
             >
-              파일 보기
+              View file
             </a>
             <input
               ref={inputRef}
@@ -183,31 +183,31 @@ function DocumentRow({
               onClick={() => inputRef.current?.click()}
               className="text-neutral-500 hover:text-neutral-900 disabled:opacity-50"
             >
-              {replace.isPending ? "업로드 중…" : "파일 교체"}
+              {replace.isPending ? "Uploading…" : "Replace"}
             </button>
             <span className="text-neutral-300">·</span>
-            <span>{doc.kind || "형식 미상"}</span>
+            <span>{doc.kind || "Unknown format"}</span>
             {doc.size && <span>· {doc.size}</span>}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton label="위로" disabled={index <= 0 || busy} onClick={() => move(-1)}>
+          <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑
           </IconButton>
           <IconButton
-            label="아래로"
+            label="Move down"
             disabled={index >= siblings.length - 1 || busy}
             onClick={() => move(1)}
           >
             ↓
           </IconButton>
           <IconButton
-            label="문서 삭제"
+            label="Delete document"
             danger
             disabled={busy}
             onClick={() => {
-              if (window.confirm(`"${doc.title}" 문서를 목록에서 삭제할까요?`))
+              if (window.confirm(`Delete "${doc.title}"?`))
                 remove.mutate(doc.id);
             }}
           >

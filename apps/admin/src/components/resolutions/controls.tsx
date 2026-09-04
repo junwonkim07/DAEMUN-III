@@ -9,23 +9,28 @@ export const STATUS_META: Record<
   { label: string; active: string; idle: string }
 > = {
   awaiting: {
-    label: "미제출",
+    label: "Waiting for review",
     active: "bg-neutral-200 text-neutral-900",
     idle: "text-neutral-500 hover:bg-neutral-100",
   },
   review: {
-    label: "리뷰 중",
+    label: "Under review",
     active: "bg-amber-500 text-white",
     idle: "text-neutral-500 hover:bg-neutral-100",
   },
   approved: {
-    label: "승인",
+    label: "Approved",
     active: "bg-emerald-600 text-white",
+    idle: "text-neutral-500 hover:bg-neutral-100",
+  },
+  published: {
+    label: "Published",
+    active: "bg-sky-600 text-white",
     idle: "text-neutral-500 hover:bg-neutral-100",
   },
 };
 
-const ORDER: ResolutionStatus[] = ["awaiting", "review", "approved"];
+const ORDER: ResolutionStatus[] = ["awaiting", "review", "approved", "published"];
 
 export function StatusControl({
   value,
@@ -39,7 +44,7 @@ export function StatusControl({
   return (
     <div
       role="group"
-      aria-label="상태"
+      aria-label="Status"
       className="inline-flex overflow-hidden rounded-md border border-neutral-300 text-xs"
     >
       {ORDER.map((status, i) => {

@@ -31,11 +31,11 @@ function messageFromBody(body: unknown, status: number): string {
     const issues = (b.error as { issues?: unknown[] } | undefined)?.issues;
     if (Array.isArray(issues)) {
       const lines = issues.map(issueLine).filter((l): l is string => !!l);
-      if (lines.length > 0) return `입력값이 올바르지 않습니다 — ${lines.join("; ")}`;
-      return "입력값이 올바르지 않습니다.";
+      if (lines.length > 0) return `Invalid input — ${lines.join("; ")}`;
+      return "Invalid input.";
     }
   }
-  return `요청이 실패했습니다 (HTTP ${status}).`;
+  return `Request failed (HTTP ${status}).`;
 }
 
 let redirectingToLogin = false;
@@ -70,7 +70,7 @@ export async function adminFetch<T>(
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign(`/login?next=${encodeURIComponent(next)}`);
     }
-    throw new ApiError(401, "로그인이 필요합니다.");
+    throw new ApiError(401, "Sign-in required.");
   }
 
   if (!res.ok) {
@@ -82,7 +82,7 @@ export async function adminFetch<T>(
     }
     const message =
       res.status === 403
-        ? "권한이 없습니다. 관리자 계정으로 로그인했는지 확인하세요."
+        ? "You don't have permission. Check that you're signed in with an admin account."
         : messageFromBody(body, res.status);
     throw new ApiError(res.status, message, body);
   }
@@ -103,7 +103,7 @@ export async function uploadFile(file: File): Promise<{
   size: string;
 }> {
   if (file.size > MAX_UPLOAD_BYTES) {
-    throw new ApiError(413, `파일이 25MB를 넘습니다 (${(file.size / 1024 / 1024).toFixed(1)}MB).`);
+    throw new ApiError(413, `File exceeds 25MB (${(file.size / 1024 / 1024).toFixed(1)}MB).`);
   }
   const form = new FormData();
   form.append("file", file);

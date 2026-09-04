@@ -25,6 +25,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class ChatUnavailableError extends Error {}
 export class ChatUpstreamError extends Error {}
+/** 모델이 답을 거부/차단 — 재시도해도 같다. 사용자에겐 안내 문구를 준다. */
+export class ChatBlockedError extends Error {}
 
 type Contact = { email: string; instagram: string; instagramUrl: string };
 
@@ -123,9 +125,23 @@ type GeminiResponse = {
 };
 
 /**
+ * 답이 없는 finishReason. SAFETY/RECITATION 등은 프롬프트가 아니라 후보 단위
+ * 차단이라 promptFeedback.blockReason이 비어 있다 — 이걸 안 보면 "빈 응답"
+ * 오류로 뭉뚱그려져 로그에 error로 남는다.
+ */
+const BLOCKING_FINISH_REASONS = new Set([
+  "SAFETY",
+  "RECITATION",
+  "BLOCKLIST",
+  "PROHIBITED_CONTENT",
+  "SPII",
+]);
+
+/**
  * Gemini에 한 번 물어보고 답변 텍스트를 돌려준다.
  * - 키 없음 → ChatUnavailableError
- * - 업스트림 오류/차단/빈 응답 → ChatUpstreamError
+ * - 안전 필터 차단 → ChatBlockedError
+ * - 업스트림 오류/빈 응답 → ChatUpstreamError
  */
 export async function generateReply(
   messages: ChatMessage[],
@@ -180,7 +196,11 @@ export async function generateReply(
 
   const data = (await res.json()) as GeminiResponse;
   if (data.promptFeedback?.blockReason) {
-    throw new ChatUpstreamError(`blocked: ${data.promptFeedback.blockReason}`);
+    throw new ChatBlockedError(`prompt blocked: ${data.promptFeedback.blockReason}`);
+  }
+  const finishReason = data.candidates?.[0]?.finishReason;
+  if (finishReason && BLOCKING_FINISH_REASONS.has(finishReason)) {
+    throw new ChatBlockedError(`candidate blocked: ${finishReason}`);
   }
   // 3.x 모델은 사고(thought) 파트를 함께 내려줄 수 있다 — 표시용 텍스트만.
   const text = data.candidates?.[0]?.content?.parts
@@ -188,7 +208,13 @@ export async function generateReply(
     .map((p) => p.text ?? "")
     .join("")
     .trim();
-  if (!text) throw new ChatUpstreamError("empty completion");
+  if (!text) {
+    throw new ChatUpstreamError(`empty completion (finishReason=${finishReason ?? "none"})`);
+  }
+  // MAX_TOKENS면 문장 중간에서 끊긴다 — 완결된 답인 척하지 않는다.
+  if (finishReason === "MAX_TOKENS") {
+    return `${text}\n\n(답변이 길어 여기서 끊겼어요. 좀 더 좁혀서 다시 물어봐 주세요.)`;
+  }
 
   return text;
 }

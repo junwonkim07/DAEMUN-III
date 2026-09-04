@@ -12,13 +12,35 @@ import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Msg = { role: "user" | "assistant"; content: string };
+/**
+ * `local`은 이 컴포넌트가 만든 말풍선(첫 인사, 오류 안내)이라는 표시다.
+ * 서버로 다시 보내지 않는다 — 모델이 자기 이전 답변으로 오인하면 안 된다.
+ */
+type Msg = { role: "user" | "assistant"; content: string; local?: boolean };
 
 /** 서버(chatRequestSchema)는 40개까지 받고 10턴만 쓴다 — 넉넉히 20으로 자른다. */
 const MAX_HISTORY = 20;
+/** 서버·Caddy 본문 상한 64KB보다 여유 있게 — 넘으면 오래된 것부터 버린다. */
+const MAX_BODY_BYTES = 48 * 1024;
+
+/** 보낼 이력: local 제외, 최근 MAX_HISTORY개, 그리고 크기 한도 안쪽까지. */
+function trimForRequest(messages: Msg[]): Msg[] {
+  const sendable = messages.filter((m) => !m.local).slice(-MAX_HISTORY);
+  const out: Msg[] = [];
+  let bytes = 0;
+  for (let i = sendable.length - 1; i >= 0; i--) {
+    const m = sendable[i]!;
+    const size = new TextEncoder().encode(m.content).length + 40; // JSON 오버헤드
+    if (out.length > 0 && bytes + size > MAX_BODY_BYTES) break;
+    out.unshift({ role: m.role, content: m.content });
+    bytes += size;
+  }
+  return out;
+}
 
 const OPENING: Msg = {
   role: "assistant",
+  local: true,
   content:
     "안녕하세요! DAEMUN 안내 챗봇 Roger예요. 실시간 상담이 아니라 자동응답이에요. 동아리 소개, 신청 방법, 활동 일정 등 궁금하신 점을 편하게 물어보세요.",
 };
@@ -37,7 +59,7 @@ export function ChatWidget() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, loading]);
+  }, [messages, loading, open]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -63,8 +85,8 @@ export function ChatWidget() {
     setInput("");
     setLoading(true);
 
-    // 첫 인사는 서버에 보내지 않고, 최근 MAX_HISTORY턴만 보낸다.
-    const payload = next.filter((m) => m !== OPENING).slice(-MAX_HISTORY);
+    // 첫 인사·오류 안내(local)는 빼고, 개수·크기 한도 안쪽으로 잘라 보낸다.
+    const payload = trimForRequest(next);
 
     try {
       const res = await fetch("/api/chat", {
@@ -73,14 +95,26 @@ export function ChatWidget() {
         body: JSON.stringify({ messages: payload }),
       });
       const data = (await res.json().catch(() => null)) as { reply?: string } | null;
-      const reply =
-        data?.reply ??
-        (res.ok
-          ? "답변을 받지 못했어요. 잠시 후 다시 시도해주세요."
-          : NETWORK_ERROR);
-      setMessages((m) => [...m, { role: "assistant", content: reply }]);
+      // 서버가 준 answer만 모델의 실제 답변으로 취급한다. 우리 쪽 안내 문구나
+      // 오류 응답(429·502·503의 reply 포함)은 local이라 다음 요청에 안 실린다.
+      const served = res.ok && typeof data?.reply === "string";
+      setMessages((m) => [
+        ...m,
+        served
+          ? { role: "assistant", content: data!.reply as string }
+          : {
+              role: "assistant",
+              local: true,
+              content:
+                typeof data?.reply === "string"
+                  ? data.reply
+                  : res.ok
+                    ? "답변을 받지 못했어요. 잠시 후 다시 시도해주세요."
+                    : NETWORK_ERROR,
+            },
+      ]);
     } catch {
-      setMessages((m) => [...m, { role: "assistant", content: NETWORK_ERROR }]);
+      setMessages((m) => [...m, { role: "assistant", local: true, content: NETWORK_ERROR }]);
     } finally {
       setLoading(false);
     }

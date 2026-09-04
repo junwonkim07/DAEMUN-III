@@ -13,8 +13,9 @@ export default function FaqsPage() {
         <div>
           <h1 className="text-lg font-semibold">FAQ</h1>
           <p className="mt-0.5 text-xs text-neutral-500">
-            안내 챗봇이 답변 근거로 쓰는 질문·답변. 공개로 표시된 항목만 챗봇이
-            사용합니다. 공개 사이트에는 노출되지 않습니다.
+            Questions and answers the guide chatbot uses as source material.
+            Only items marked public are used by the chatbot. They are not
+            shown on the public site.
           </p>
         </div>
         <button
@@ -23,15 +24,15 @@ export default function FaqsPage() {
           disabled={isFetching}
           className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
         >
-          {isFetching ? "새로고침 중…" : "새로고침"}
+          {isFetching ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
       <div className="mt-6 max-w-3xl">
-        {isPending && <p className="text-sm text-neutral-500">불러오는 중...</p>}
+        {isPending && <p className="text-sm text-neutral-500">Loading...</p>}
         {error && (
           <p className="text-sm text-red-600">
-            불러오지 못했습니다: {error.message}
+            Failed to load: {error.message}
           </p>
         )}
         {data && <FaqBoard faqs={data} />}

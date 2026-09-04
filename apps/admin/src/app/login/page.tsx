@@ -17,19 +17,19 @@ export default function LoginPage() {
     setError(null);
     setPending(true);
     try {
-      // better-auth 클라이언트는 실패 시 throw하지 않고 { error } 형태로
-      // 반환한다 — 401/400 등을 여기서 직접 체크해야 한다.
+      // better-auth's client doesn't throw on failure — it returns
+      // { error } instead, so 401/400 etc. must be checked here directly.
       const { error: signInError } = await signIn.email({ email, password });
       if (signInError) {
-        setError(signInError.message ?? "로그인에 실패했습니다.");
+        setError(signInError.message ?? "Sign-in failed.");
         return;
       }
-      // adminFetch가 401에 ?next=로 돌려보낸 경우 원래 화면으로 복귀
+      // If adminFetch redirected here with ?next= on a 401, return to it
       const next = new URLSearchParams(window.location.search).get("next");
       router.push(next && next.startsWith("/dashboard") ? next : "/dashboard");
     } catch {
-      // 네트워크 오류 등 예상치 못한 예외
-      setError("서버에 연결할 수 없습니다. API가 실행 중인지 확인하세요.");
+      // Network error or other unexpected exception
+      setError("Could not connect to the server. Check that the API is running.");
     } finally {
       setPending(false);
     }
@@ -49,7 +49,7 @@ export default function LoginPage() {
 
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm font-medium">
-            이메일
+            Email
           </label>
           <input
             id="email"
@@ -64,7 +64,7 @@ export default function LoginPage() {
 
         <div className="space-y-1">
           <label htmlFor="password" className="text-sm font-medium">
-            비밀번호
+            Password
           </label>
           <input
             id="password"
@@ -82,7 +82,7 @@ export default function LoginPage() {
           disabled={pending}
           className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {pending ? "로그인 중..." : "로그인"}
+          {pending ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </div>

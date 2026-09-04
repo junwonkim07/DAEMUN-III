@@ -34,15 +34,21 @@ export function logChat(entry: {
         outcome: entry.outcome,
         faqHits: entry.faqHits,
       });
-
-      const now = Date.now();
-      if (now - lastSweep > SWEEP_INTERVAL_MS) {
-        lastSweep = now;
-        const cutoff = new Date(now - RETENTION_DAYS * 24 * 60 * 60 * 1000);
-        await db.delete(chatLogs).where(lt(chatLogs.createdAt, cutoff));
-      }
     } catch (err) {
       console.warn("[chat-log] insert failed:", (err as Error).message);
+    }
+
+    // 정리는 삽입과 분리한다: 실패가 삽입 오류로 보고되지 않게, 그리고
+    // 성공했을 때만 타이머를 미뤄 다음 요청이 다시 시도하게.
+    const now = Date.now();
+    if (now - lastSweep > SWEEP_INTERVAL_MS) {
+      try {
+        const cutoff = new Date(now - RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        await db.delete(chatLogs).where(lt(chatLogs.createdAt, cutoff));
+        lastSweep = now;
+      } catch (err) {
+        console.warn("[chat-log] retention sweep failed:", (err as Error).message);
+      }
     }
   })();
 }
