@@ -13,7 +13,8 @@ name: Deploy
 #   VPS_HOST_KEY  output of `ssh-keyscan -t ed25519 <host>` (pins the server)
 #
 # Images: ghcr.io/<owner>/<repo>/{api,web,admin}:<sha> and :latest.
-# Rollback on the server:  IMAGE_TAG=<old sha> docker compose up -d --no-build
+# Rollback on the server (old images are pruned after each deploy, so pull first):
+#   IMAGE_TAG=<old sha> docker compose pull api web admin && IMAGE_TAG=<old sha> docker compose up -d --no-build
 
 on:
   push:
@@ -113,7 +114,10 @@ jobs:
             docker compose up -d --no-build --remove-orphans
             docker logout ghcr.io >/dev/null
             # Drop the previous release's images so the 19 GB disk stays free.
-            docker image prune -f >/dev/null
+            # They keep their :<sha> tag, so plain `prune` (dangling only) would
+            # leave them; -a removes every image no container uses. postgres and
+            # caddy are running, so they stay.
+            docker image prune -af >/dev/null
             docker compose ps
             df -h / | tail -1
           REMOTE

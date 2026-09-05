@@ -197,7 +197,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 - **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. API 부팅 시 자동 적용. zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
 - **새 CRUD 리소스**: `crudRoutes({ table, create, update, orderBy? })` (`lib/crud.ts`)에 테이블 + zod 스키마 넘기고 `admin.ts`에 `.route("/xxx", ...)` 한 줄. 손으로 라우트 짜지 말 것.
 - **배포 시 반드시**: `docker-compose.yml`에 `admin` 서비스 추가, `deploy/Caddyfile`에 도메인 추가, `ADMIN_URL`을 패널 도메인으로.
-- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 이미지를 빌드해 GHCR에 push한 뒤 서버에 SSH로 들어가 `IMAGE_TAG=<커밋 sha> docker compose pull && up -d --no-build`를 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인. 롤백은 서버에서 `IMAGE_TAG=<이전 sha> docker compose up -d --no-build`. Dockerfile·compose·워크플로우를 건드린 PR은 CI에서 이미지 빌드(push 없이)까지 돌려본다.
+- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 이미지를 빌드해 GHCR에 push한 뒤 서버에 SSH로 들어가 `IMAGE_TAG=<커밋 sha> docker compose pull && up -d --no-build`를 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인. 롤백은 서버에서 `IMAGE_TAG=<이전 sha> docker compose pull api web admin && IMAGE_TAG=<이전 sha> docker compose up -d --no-build` (배포마다 이전 이미지를 정리하므로 pull이 먼저). Dockerfile·compose·워크플로우를 건드린 PR은 CI에서 이미지 빌드(push 없이)까지 돌려본다.
 
 ---
 
