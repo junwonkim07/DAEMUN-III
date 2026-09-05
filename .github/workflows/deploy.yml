@@ -1,24 +1,89 @@
 name: Deploy
 
-# Every push to main (i.e. every merged PR) rebuilds and restarts the stack
-# on the VPS. Secrets required (Settings → Secrets → Actions):
+# Every push to main (i.e. every merged PR) builds the three app images on
+# GitHub's runners, pushes them to GHCR, and then tells the VPS to pull and
+# restart. The VPS (1 GB RAM) never builds anything itself.
+#
+# On pull requests that touch the Dockerfiles / compose / this workflow the
+# build jobs run without pushing, so a broken image is caught before merge.
+#
+# Secrets required (Settings → Secrets → Actions):
 #   VPS_HOST      e.g. 104.36.69.86
 #   VPS_SSH_KEY   private key whose public half is in root's authorized_keys
 #   VPS_HOST_KEY  output of `ssh-keyscan -t ed25519 <host>` (pins the server)
+#
+# Images: ghcr.io/<owner>/<repo>/{api,web,admin}:<sha> and :latest.
+# Rollback on the server:  IMAGE_TAG=<old sha> docker compose up -d --no-build
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/deploy.yml
+      - apps/*/Dockerfile
+      - docker-compose.yml
   workflow_dispatch:
 
 concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  group: deploy-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # GHCR requires a lowercase image path
+  IMAGE_PREFIX: ghcr.io/junwonkim07/daemun-iii
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web, admin]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build ${{ matrix.app }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.app }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.app }}:latest
+          # Same value docker-compose.yml used to pass as build.args: the
+          # Next.js rewrites are baked in at build time and point at the
+          # compose-internal api service.
+          build-args: |
+            API_URL=http://api:4000
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Prepare SSH
         run: |
@@ -27,19 +92,28 @@ jobs:
           chmod 600 ~/.ssh/deploy
           echo "${{ secrets.VPS_HOST_KEY }}" >> ~/.ssh/known_hosts
 
-      - name: Pull and rebuild on the server
+      - name: Pull images and restart on the server
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} 'bash -s' <<'REMOTE'
+          ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} \
+            "GHCR_USER='$GHCR_USER' GHCR_TOKEN='$GHCR_TOKEN' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE'
             set -euo pipefail
             cd /opt/daemun
+            # compose file, Caddyfile and scripts still come from the checkout
             git fetch --prune origin main
             git reset --hard origin/main
-            # 1 GB RAM: build images one at a time instead of in parallel
-            COMPOSE_PARALLEL_LIMIT=1 docker compose up -d --build --remove-orphans
-            # Keep the box from filling up: drop dangling images and cap the
-            # BuildKit cache (19 GB disk; the cache grew to 5 GB in two days).
+            # The images are public (they inherit the repo's visibility), but
+            # log in anyway so a private repo keeps working.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            export IMAGE_TAG
+            docker compose pull --quiet api web admin
+            docker compose up -d --no-build --remove-orphans
+            docker logout ghcr.io >/dev/null
+            # Drop the previous release's images so the 19 GB disk stays free.
             docker image prune -f >/dev/null
-            docker builder prune -f --keep-storage 1500m >/dev/null
             docker compose ps
             df -h / | tail -1
           REMOTE

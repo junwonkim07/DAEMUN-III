@@ -16,7 +16,7 @@
 | 어드민 패널 | http://104.36.69.86:8081 (`apps/admin`, compose 서비스 `admin`) |
 | API | http://104.36.69.86:8080 — `GET /health`, `GET /api/public/site` 로 확인 |
 | 스택 | `/opt/daemun`에 클론된 이 저장소 + `docker-compose.yml` (postgres, api, web, caddy). 데이터는 `/opt/daemun/data/` |
-| 배포 | **main에 머지되면 GitHub Actions가 자동 배포** (`.github/workflows/deploy.yml`). 이미지 빌드가 서버에서 돌기 때문에 3분 정도 걸리고, 그동안 서버가 잠깐 느려질 수 있다 |
+| 배포 | **main에 머지되면 GitHub Actions가 자동 배포** (`.github/workflows/deploy.yml`). 이미지 3개(api·web·admin)를 GitHub 러너에서 빌드해 GHCR(`ghcr.io/junwonkim07/daemun-iii/*`)에 올리고, 서버는 `docker compose pull` 후 재시작만 한다. 서버 부하 없이 재시작 몇 초 정도만 끊긴다 |
 | 도메인 | 아직 없음. 생기면 서버 `.env`의 `WEB_DOMAIN`, `API_DOMAIN`만 바꾸면 Caddy가 HTTPS 자동 발급 |
 | 관리자 계정 | `admin@daemun.local`. 비밀번호는 서버 `/opt/daemun/.env`의 `ADMIN_PASSWORD` — 김준원에게 요청 |
 
@@ -24,7 +24,7 @@
 
 - 서버 `.env`의 `ADMIN_URL`은 **패널의 origin**(`ADMIN_DOMAIN`과 같은 값, 지금은 `http://104.36.69.86:8081`)이어야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
 - **Next.js rewrites는 빌드 시점에 고정된다.** `apps/admin/next.config.ts`의 `API_URL`은 런타임 env가 아니라 build ARG다 (`apps/admin/Dockerfile`, `docker-compose.yml`의 `build.args`). 로컬에서는 기본값 `http://localhost:4000`.
-- 패널은 `docker-compose.yml`의 `admin` 서비스로 web·api와 같이 배포된다 (`deploy/Caddyfile`의 `ADMIN_DOMAIN` 사이트). RAM 1GB라 배포 워크플로우는 이미지를 하나씩 순서대로 빌드한다(`COMPOSE_PARALLEL_LIMIT=1`) — 배포에 5분 안팎 걸린다. 문제 되면 GitHub Actions에서 이미지를 빌드해 서버는 pull만 하도록 바꾸는 게 다음 단계.
+- 패널은 `docker-compose.yml`의 `admin` 서비스로 web·api와 같이 배포된다 (`deploy/Caddyfile`의 `ADMIN_DOMAIN` 사이트). 이미지는 GitHub Actions가 빌드해 GHCR에 올리고 서버는 pull만 한다 (RAM 1GB라 서버에서 빌드하지 않는다). `docker-compose.yml`의 `build:` 섹션은 GHCR이 안 될 때 로컬 빌드용 폴백이다.
 - 프로덕션 DB는 이미 실제 사무국 명단·인사말로 채워져 있다. `packages/shared/src/default-site.ts`는 더 이상 진실이 아니고, 콘텐츠의 진실은 DB다.
 
 ---
@@ -197,7 +197,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 - **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. API 부팅 시 자동 적용. zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
 - **새 CRUD 리소스**: `crudRoutes({ table, create, update, orderBy? })` (`lib/crud.ts`)에 테이블 + zod 스키마 넘기고 `admin.ts`에 `.route("/xxx", ...)` 한 줄. 손으로 라우트 짜지 말 것.
 - **배포 시 반드시**: `docker-compose.yml`에 `admin` 서비스 추가, `deploy/Caddyfile`에 도메인 추가, `ADMIN_URL`을 패널 도메인으로.
-- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 서버에 SSH로 들어가 `docker compose up -d --build`까지 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인.
+- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 이미지를 빌드해 GHCR에 push한 뒤 서버에 SSH로 들어가 `IMAGE_TAG=<커밋 sha> docker compose pull && up -d --no-build`를 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인. 롤백은 서버에서 `IMAGE_TAG=<이전 sha> docker compose up -d --no-build`. Dockerfile·compose·워크플로우를 건드린 PR은 CI에서 이미지 빌드(push 없이)까지 돌려본다.
 
 ---
 

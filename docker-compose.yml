@@ -1,6 +1,12 @@
 # Production stack for a single VPS. Copy .env.example → .env first.
 #
-#   docker compose up -d --build
+# The app images are built by GitHub Actions (.github/workflows/deploy.yml)
+# and pulled from GHCR; the VPS never builds them:
+#
+#   IMAGE_TAG=<git sha> docker compose pull && docker compose up -d --no-build
+#
+# The build: sections stay so the stack can still be built locally when GHCR
+# is unavailable:  docker compose up -d --build
 #
 # Caddy terminates TLS and routes:
 #   $WEB_DOMAIN    → web    (public site)
@@ -24,6 +30,7 @@ services:
       retries: 10
 
   api:
+    image: ghcr.io/junwonkim07/daemun-iii/api:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -65,6 +72,7 @@ services:
       retries: 5
 
   web:
+    image: ghcr.io/junwonkim07/daemun-iii/web:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -80,6 +88,7 @@ services:
       REVALIDATE_SECRET: ${REVALIDATE_SECRET}
 
   admin:
+    image: ghcr.io/junwonkim07/daemun-iii/admin:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
