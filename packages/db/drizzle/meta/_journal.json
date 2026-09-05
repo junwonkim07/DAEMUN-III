@@ -36,6 +36,13 @@
       "when": 1788528192765,
       "tag": "0004_strong_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788603852609,
+      "tag": "0005_loud_peter_parker",
+      "breakpoints": true
     }
   ]
 }

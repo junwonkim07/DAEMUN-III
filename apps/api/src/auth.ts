@@ -40,6 +40,11 @@ export const auth = betterAuth({
       grade: { type: "string", required: false, input: true },
       committee: { type: "string", required: false, input: true },
       munExperience: { type: "string", required: false, input: true },
+      // §6-1: teamRole is self-declared at sign-up like the fields above.
+      // teamId is admin-only (input: false blocks self-service updateUser;
+      // it's written through PATCH /api/admin/users/:id/team instead).
+      teamRole: { type: "string", required: false, input: true },
+      teamId: { type: "string", required: false, input: false },
     },
   },
 

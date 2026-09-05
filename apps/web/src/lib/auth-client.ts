@@ -19,6 +19,8 @@ export const authClient = createAuthClient({
         grade: { type: "string", required: false },
         committee: { type: "string", required: false },
         munExperience: { type: "string", required: false },
+        teamRole: { type: "string", required: false },
+        teamId: { type: "string", required: false, input: false },
       },
     }),
   ],

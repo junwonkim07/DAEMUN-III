@@ -95,13 +95,15 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
   const resolutionsBySlug: Record<string, SiteData["resolutions"][string]> = {};
   for (const c of committeeRows) resolutionsBySlug[c.slug] = [];
   for (const r of resolutionRows) {
+    // §6-1: pre-publish, a resolution is entirely private (admin/team only) —
+    // not just its document. The admin preview (publicView: false) still
+    // sees every status so review can happen before anything goes public.
+    if (opts.publicView && r.status !== "published") continue;
     const slug = slugById.get(r.committeeId);
     if (!slug) continue;
     const { createdAt: _c, ...rest } = r;
-    const hideDocument = opts.publicView && r.status !== "published";
     resolutionsBySlug[slug]!.push({
       ...rest,
-      document: hideDocument ? null : r.document,
       updatedAt: r.updatedAt.toISOString(),
     });
   }

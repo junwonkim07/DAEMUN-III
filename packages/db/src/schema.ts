@@ -123,6 +123,24 @@ export const resolutionStatus = pgEnum("resolution_status", [
   "published",
 ]);
 
+/**
+ * A delegation working on one topic. Admin creates teams and assigns
+ * delegates into them (handover.md §6-1 decision B) — there is no
+ * self-service "join a team" flow.
+ */
+export const teams = pgTable("teams", {
+  id: id(),
+  committeeId: text("committee_id")
+    .notNull()
+    .references(() => committees.id, { onDelete: "cascade" }),
+  topicId: text("topic_id")
+    .notNull()
+    .references(() => topics.id, { onDelete: "cascade" }),
+  name: text("name").notNull().default(""),
+  sortOrder: sortOrder(),
+  ...timestamps,
+});
+
 export const resolutions = pgTable("resolutions", {
   id: id(),
   committeeId: text("committee_id")
@@ -131,6 +149,9 @@ export const resolutions = pgTable("resolutions", {
   topicId: text("topic_id")
     .notNull()
     .references(() => topics.id, { onDelete: "cascade" }),
+  // Which team submitted this draft. Null for resolutions the admin panel
+  // created directly (no delegate submission flow existed before §6-1).
+  teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
   label: text("label").notNull().default(""),
   submitter: text("submitter").notNull().default(""),
   status: resolutionStatus("status").notNull().default("awaiting"),
@@ -241,6 +262,10 @@ export const user = pgTable("user", {
   grade: text("grade"),
   committee: text("committee"),
   munExperience: text("mun_experience"),
+  // §6-1: self-declared at sign-up (input:true), team assignment is
+  // admin-only (input:false) — see apps/api/src/auth.ts additionalFields.
+  teamRole: text("team_role"),
+  teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
 });
 
 export const session = pgTable("session", {
@@ -328,6 +353,23 @@ export const resolutionsRelations = relations(resolutions, ({ one }) => ({
     fields: [resolutions.topicId],
     references: [topics.id],
   }),
+  team: one(teams, {
+    fields: [resolutions.teamId],
+    references: [teams.id],
+  }),
+}));
+
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  committee: one(committees, {
+    fields: [teams.committeeId],
+    references: [committees.id],
+  }),
+  topic: one(topics, {
+    fields: [teams.topicId],
+    references: [topics.id],
+  }),
+  members: many(user),
+  resolutions: many(resolutions),
 }));
 
 export const scheduleDaysRelations = relations(scheduleDays, ({ many }) => ({
@@ -341,9 +383,10 @@ export const scheduleItemsRelations = relations(scheduleItems, ({ one }) => ({
   }),
 }));
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ one, many }) => ({
   sessions: many(session),
   accounts: many(account),
+  team: one(teams, { fields: [user.teamId], references: [teams.id] }),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({

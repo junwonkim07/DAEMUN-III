@@ -16,3 +16,14 @@ export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
   c.set("session", session);
   await next();
 });
+
+/** Reject unless the request carries a valid session for any non-banned user. */
+export const requireUser = createMiddleware<AuthEnv>(async (c, next) => {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+
+  if (!session) return c.json({ error: "Unauthorized" }, 401);
+  if (session.user.banned) return c.json({ error: "Account is banned" }, 403);
+
+  c.set("session", session);
+  await next();
+});

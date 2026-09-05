@@ -1,24 +1,6 @@
-import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { Hono } from "hono";
-import { env } from "../env";
+import { saveUpload, UploadRejectedError } from "../lib/file-store";
 import { sweepOrphanUploads } from "../lib/uploads-gc";
-
-const ALLOWED: Record<string, string> = {
-  ".jpg": "image",
-  ".jpeg": "image",
-  ".png": "image",
-  ".webp": "image",
-  ".pdf": "PDF",
-  ".doc": "DOC",
-  ".docx": "DOC",
-};
-
-function humanSize(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * `POST /api/admin/uploads` — multipart with a single `file` field.
@@ -39,29 +21,12 @@ export const uploadRoutes = new Hono()
       return c.json({ error: "Expected a multipart `file` field" }, 400);
     }
 
-    const ext = path.extname(file.name).toLowerCase();
-    const kind = ALLOWED[ext];
-    if (!kind) {
-      return c.json(
-        { error: `Unsupported file type ${ext || "(none)"}`, allowed: Object.keys(ALLOWED) },
-        415,
-      );
+    try {
+      return c.json(await saveUpload(file), 201);
+    } catch (err) {
+      if (err instanceof UploadRejectedError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
     }
-    if (file.size > env.maxUploadBytes) {
-      return c.json({ error: `File exceeds ${humanSize(env.maxUploadBytes)}` }, 413);
-    }
-
-    const name = `${randomUUID()}${ext}`;
-    await fs.writeFile(path.join(env.uploadDir, name), Buffer.from(await file.arrayBuffer()));
-
-    return c.json(
-      {
-        url: `/uploads/${name}`,
-        originalName: file.name,
-        kind,
-        bytes: file.size,
-        size: humanSize(file.size),
-      },
-      201,
-    );
   });

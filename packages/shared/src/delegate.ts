@@ -23,6 +23,18 @@ export type MunExperience = (typeof MUN_EXPERIENCE_OPTIONS)[number]["value"];
 export const gradeSchema = z.enum(["1", "2", "3"]);
 export const munExperienceSchema = z.enum(["first", "1-2", "3-5", "6+"]);
 
+/**
+ * §6-1: self-declared at sign-up. This is a preference, not a grant — the
+ * admin can still put anyone in either role when assigning teams, and more
+ * than one delegate per team may pick "lead" (handover.md §6-1 decision C).
+ */
+export const TEAM_ROLE_OPTIONS = [
+  { value: "lead", label: "Team lead", sub: "I'll be the one submitting our resolution" },
+  { value: "member", label: "Team member", sub: "I'm drafting with a team, not submitting solo" },
+] as const;
+export type TeamRolePreference = (typeof TEAM_ROLE_OPTIONS)[number]["value"];
+export const teamRoleSchema = z.enum(["lead", "member"]);
+
 /** What the onboarding writes through `authClient.updateUser`. */
 export const delegateProfileSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -30,6 +42,7 @@ export const delegateProfileSchema = z.object({
   /** committee slug (see `committeeSchema.slug`) */
   committee: z.string().trim().min(1),
   munExperience: munExperienceSchema,
+  teamRole: teamRoleSchema,
 });
 export type DelegateProfile = z.infer<typeof delegateProfileSchema>;
 
@@ -39,8 +52,9 @@ export function isProfileComplete(u: {
   grade?: string | null;
   committee?: string | null;
   munExperience?: string | null;
+  teamRole?: string | null;
 }): boolean {
-  return Boolean(u.name && u.grade && u.committee && u.munExperience);
+  return Boolean(u.name && u.grade && u.committee && u.munExperience && u.teamRole);
 }
 
 export const userRoleSchema = z.enum(["admin", "delegate"]);

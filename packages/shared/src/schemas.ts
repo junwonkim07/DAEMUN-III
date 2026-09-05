@@ -138,6 +138,27 @@ export const committeeUpdateSchema = z.object(committeeFields).partial();
 export type CommitteeWithTopics = Committee & { topics: Topic[] };
 
 /* ------------------------------------------------------------------ */
+/*  Teams (§6-1 — a delegation working on one topic)                   */
+/* ------------------------------------------------------------------ */
+
+export const teamSchema = z.object({
+  id: str,
+  committeeId: str,
+  topicId: str,
+  name: str,
+  sortOrder: z.number().int(),
+});
+export type Team = z.infer<typeof teamSchema>;
+const teamFields = {
+  committeeId: str,
+  topicId: str,
+  name: str,
+  sortOrder,
+};
+export const teamCreateSchema = z.object(teamFields).extend({ name: str.default("") });
+export const teamUpdateSchema = z.object(teamFields).partial();
+
+/* ------------------------------------------------------------------ */
 /*  Resolutions                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -153,6 +174,7 @@ export const resolutionSchema = z.object({
   id: str,
   committeeId: str,
   topicId: str,
+  teamId: str.nullable(),
   label: str,
   submitter: str,
   status: resolutionStatusSchema,
@@ -164,6 +186,7 @@ export type Resolution = z.infer<typeof resolutionSchema>;
 const resolutionFields = {
   committeeId: str,
   topicId: str,
+  teamId: optStr,
   label: str,
   submitter: str,
   status: resolutionStatusSchema,

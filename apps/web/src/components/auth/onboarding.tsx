@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
   CornerDownLeft,
+  Crown,
   GraduationCap,
   Landmark,
   Loader2,
@@ -19,7 +20,7 @@ import { BrandMark } from "@/components/auth/auth-shell";
 import { OptionCard } from "@/components/auth/option-card";
 import { authClient, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { GRADE_OPTIONS, MUN_EXPERIENCE_OPTIONS } from "@daemun/shared";
+import { GRADE_OPTIONS, MUN_EXPERIENCE_OPTIONS, TEAM_ROLE_OPTIONS } from "@daemun/shared";
 
 export type CommitteeOption = {
   slug: string;
@@ -33,10 +34,13 @@ type Form = {
   grade: string | null;
   committee: string | null;
   munExperience: string | null;
+  teamRole: string | null;
 };
 
-const STEPS = ["name", "grade", "committee", "experience", "done"] as const;
+const STEPS = ["name", "grade", "committee", "experience", "teamRole", "done"] as const;
 type Step = (typeof STEPS)[number];
+
+const TEAM_ROLE_ICONS = [<Crown key="lead" className="size-6" />, <Users key="member" className="size-6" />];
 
 const EXPERIENCE_ICONS = [
   <Sparkles key="0" className="size-6" />,
@@ -77,6 +81,7 @@ export function Onboarding({
       grade: u.grade ?? null,
       committee: u.committee ?? null,
       munExperience: u.munExperience ?? null,
+      teamRole: u.teamRole ?? null,
     });
   }
 
@@ -97,7 +102,9 @@ export function Onboarding({
             ? form.committee !== null
             : step === "experience"
               ? form.munExperience !== null
-              : true;
+              : step === "teamRole"
+                ? form.teamRole !== null
+                : true;
 
   const go = (delta: number) => {
     setDirection(delta);
@@ -113,6 +120,7 @@ export function Onboarding({
     if (form.grade) patch.grade = form.grade;
     if (form.committee) patch.committee = form.committee;
     if (form.munExperience) patch.munExperience = form.munExperience;
+    if (form.teamRole) patch.teamRole = form.teamRole;
 
     if (Object.keys(patch).length > 0) {
       const { error: err } = await authClient.updateUser(patch);
@@ -169,6 +177,7 @@ export function Onboarding({
   const committee = committees.find((c) => c.slug === form.committee);
   const grade = GRADE_OPTIONS.find((g) => g.value === form.grade);
   const experience = MUN_EXPERIENCE_OPTIONS.find((e) => e.value === form.munExperience);
+  const teamRole = TEAM_ROLE_OPTIONS.find((r) => r.value === form.teamRole);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -298,6 +307,30 @@ export function Onboarding({
               </StepFrame>
             )}
 
+            {step === "teamRole" && (
+              <StepFrame
+                title={
+                  <>
+                    When your team forms,
+                    <br />
+                    what&apos;s your role?
+                  </>
+                }
+                sub="Your team is assigned by the Secretariat after sign-up. This just tells them who to make the submitter — more than one person can pick lead."
+              >
+                {TEAM_ROLE_OPTIONS.map((r, i) => (
+                  <OptionCard
+                    key={r.value}
+                    icon={TEAM_ROLE_ICONS[i]}
+                    label={r.label}
+                    sub={r.sub}
+                    selected={form.teamRole === r.value}
+                    onSelect={() => setForm({ ...form, teamRole: r.value })}
+                  />
+                ))}
+              </StepFrame>
+            )}
+
             {step === "done" && (
               <div className="flex flex-col items-center text-center">
                 <Image
@@ -334,6 +367,11 @@ export function Onboarding({
                     icon={<Award className="size-5" />}
                     label="Experience"
                     value={experience?.label ?? "Not chosen"}
+                  />
+                  <SummaryRow
+                    icon={<Crown className="size-5" />}
+                    label="Team role"
+                    value={teamRole?.label ?? "Not chosen"}
                   />
                 </dl>
 

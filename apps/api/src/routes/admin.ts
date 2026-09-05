@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { asc, count, desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import {
   committeeCreateSchema,
   committeeUpdateSchema,
@@ -19,6 +20,8 @@ import {
   scheduleDayUpdateSchema,
   scheduleItemCreateSchema,
   scheduleItemUpdateSchema,
+  teamCreateSchema,
+  teamUpdateSchema,
   topicCreateSchema,
   topicUpdateSchema,
 } from "@daemun/shared";
@@ -33,6 +36,7 @@ import {
   resolutions,
   scheduleDays,
   scheduleItems,
+  teams,
   topics,
   user,
 } from "@daemun/db";
@@ -137,6 +141,15 @@ export const adminRoutes = new Hono()
     }),
   )
   .route(
+    "/teams",
+    crudRoutes({
+      table: teams,
+      create: teamCreateSchema,
+      update: teamUpdateSchema,
+      orderBy: (t) => [asc(t.committeeId)],
+    }),
+  )
+  .route(
     "/resolutions",
     crudRoutes({
       table: resolutions,
@@ -144,6 +157,44 @@ export const adminRoutes = new Hono()
       update: resolutionUpdateSchema,
       orderBy: (t) => [asc(t.committeeId)],
     }),
+  )
+  /**
+   * Bulk "approved -> published" (§6-1). Only rows still `approved` move;
+   * anything else (awaiting/review/already published) is left alone.
+   */
+  .post("/resolutions/publish-approved", async (c) => {
+    const rows = await db
+      .update(resolutions)
+      .set({ status: "published" })
+      .where(eq(resolutions.status, "approved"))
+      .returning({ id: resolutions.id });
+    revalidateWeb();
+    return c.json({ published: rows.length });
+  })
+
+  /**
+   * Team assignment (§6-1 decision B — admin assigns, no self-service
+   * "join a team"). Writes straight to the drizzle `user` row rather than
+   * through the better-auth admin plugin, which only manages role/ban.
+   */
+  .patch(
+    "/users/:id/team",
+    zValidator(
+      "json",
+      z.object({
+        teamId: z.string().nullable().optional(),
+        teamRole: z.enum(["lead", "member"]).nullable().optional(),
+      }),
+    ),
+    async (c) => {
+      const [row] = await db
+        .update(user)
+        .set(c.req.valid("json"))
+        .where(eq(user.id, c.req.param("id")))
+        .returning({ id: user.id, teamId: user.teamId, teamRole: user.teamRole });
+      if (!row) return c.json({ error: "User not found" }, 404);
+      return c.json(row);
+    },
   )
   .route(
     "/schedule/days",

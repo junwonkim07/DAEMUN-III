@@ -5,6 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { auth } from "./auth";
 import { env } from "./env";
 import { adminRoutes } from "./routes/admin";
+import { delegateRoutes } from "./routes/delegate";
 import { publicRoutes } from "./routes/public";
 
 /**
@@ -15,6 +16,7 @@ import { publicRoutes } from "./routes/public";
  *   *    /api/auth/*                  better-auth (sign-in, session, admin users…)
  *   GET  /api/public/site             full SiteData payload for the public site
  *   *    /api/admin/*                 authenticated content CRUD (see routes/admin.ts)
+ *   *    /api/delegate/*               a delegate's own team + resolution upload (routes/delegate.ts)
  *
  * No CORS is configured on purpose: frontends proxy `/api/*` and `/uploads/*`
  * to this server through Next.js rewrites, so every browser request is
@@ -38,6 +40,7 @@ export const app = new Hono()
 
   .route("/api/public", publicRoutes)
   .route("/api/admin", adminRoutes)
+  .route("/api/delegate", delegateRoutes)
 
   .notFound((c) => c.json({ error: "Not found" }, 404))
   .onError((err, c) => {
