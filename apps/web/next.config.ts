@@ -43,6 +43,8 @@ const nextConfig: NextConfig = {
       { source: "/api/auth/:path*", destination: `${API_URL}/api/auth/:path*` },
       // 안내 챗봇 — 브라우저에서 same-origin으로 호출, API의 공개 엔드포인트로 전달
       { source: "/api/chat", destination: `${API_URL}/api/public/chat` },
+      // §6-1: /account의 팀 정보·결의안 업로드. same-origin이어야 세션 쿠키가 실린다.
+      { source: "/api/delegate/:path*", destination: `${API_URL}/api/delegate/:path*` },
     ];
   },
 };

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { signOut, useSession } from "@/lib/auth-client";
+import { TeamPanel } from "@/components/site/team-panel";
 import { GRADE_OPTIONS, MUN_EXPERIENCE_OPTIONS, isProfileComplete } from "@daemun/shared";
 
 export type CommitteeSummary = { slug: string; code: string; name: string };
@@ -105,9 +106,10 @@ export function AccountView({ committees }: { committees: CommitteeSummary[] }) 
         </button>
       </div>
 
-      <p className="mt-16 max-w-[52ch] text-[13px] leading-relaxed text-faint">
-        Resolution submission for your committee will open here closer to the conference. Until
-        then, check the{" "}
+      <TeamPanel />
+
+      <p className="mt-6 max-w-[52ch] text-[13px] leading-relaxed text-faint">
+        Not sure how to write a resolution? Check the{" "}
         <Link href="/guide" className="text-brand hover:opacity-75">
           Guide to MUN
         </Link>{" "}
