@@ -23,7 +23,6 @@ const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "Resolutions", href: "/resolutions" },
   { label: "Guide to MUN", href: "/guide" },
   { label: "Announcements", href: "/announcements" },
-  { label: "Contact", href: "/#contact" },
 ];
 
 const MENU_CONTENT: Record<string, MenuContent> = {
@@ -225,7 +224,7 @@ export function AppleNav() {
     <nav className="fixed top-0 z-50 flex w-full flex-col items-center justify-center">
       {/* Header bar */}
       <div className="relative z-20 flex w-full items-center justify-center border-b border-black/10 bg-white shadow-[0_6px_20px_rgba(10,20,40,0.07)]">
-        <ul className="flex w-full max-w-[1024px] items-center justify-between gap-5 bg-white px-5 text-[13px] lg:px-0">
+        <ul className="flex w-full max-w-[1024px] items-center justify-between gap-5 bg-white px-5 text-[15px] lg:px-0">
           <motion.li
             animate={{ opacity: isMenuOpen ? 0 : 1 }}
             transition={{ duration: 0.3 }}
@@ -242,7 +241,7 @@ export function AppleNav() {
                 width={30}
                 height={23}
               />
-              <span className="font-roman text-[15px] tracking-[0.18em]">
+              <span className="font-roman text-[17px] tracking-[0.18em]">
                 DAEMUN III
               </span>
             </Link>
