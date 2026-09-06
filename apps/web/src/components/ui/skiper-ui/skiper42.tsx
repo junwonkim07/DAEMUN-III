@@ -382,7 +382,13 @@ const CopyIcon = ({
   const [isUsageCopied, setIsUsageCopied] = useState(false);
 
   const handleCopyUsage = async () => {
-    await navigator.clipboard.writeText(copyText);
+    // navigator.clipboard is undefined on plain-HTTP origins (secure-context
+    // API); don't let the click blow up with an unhandled rejection there.
+    try {
+      await navigator.clipboard?.writeText(copyText);
+    } catch {
+      return;
+    }
     setIsUsageCopied(true);
     setTimeout(() => setIsUsageCopied(false), 1000);
   };
