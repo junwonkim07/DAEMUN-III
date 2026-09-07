@@ -4,10 +4,16 @@ import "./globals.css";
 import { getSite } from "@/lib/site";
 
 /**
- * Render per request so `next build` never needs the API. The site payload
- * itself is still cached (60s / tag "site") inside getSite().
+ * Public pages are statically cached and re-rendered at most once a minute,
+ * or immediately when the API's POST /api/revalidate invalidates the "site"
+ * tag after an admin edit. `next build` still never needs the API: getSite()
+ * falls back to the bundled default content when it is unreachable, and the
+ * first request after deploy refreshes from the real data.
+ *
+ * (This was `0` — every request re-rendered the whole page on the 1-vCPU
+ * server even though the data behind it was already cached.)
  */
-export const revalidate = 0;
+export const revalidate = 60;
 
 /** Display face for every heading (.font-custom in globals.css). */
 const cormorantSC = Cormorant_SC({
