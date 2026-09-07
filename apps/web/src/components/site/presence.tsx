@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { uuid } from "@/lib/uuid";
+
 const BEAT_MS = 45_000;
 
 /**
@@ -11,31 +13,40 @@ const BEAT_MS = 45_000;
  */
 export function Presence() {
   useEffect(() => {
-    let id: string;
+    // Nothing in here may throw: an uncaught error in an effect unmounts the
+    // whole React root, and a visitor counter must never be able to do that.
+    // (It did, once — see lib/uuid.ts.)
     try {
-      id = sessionStorage.getItem("daemun-presence") ?? crypto.randomUUID();
-      sessionStorage.setItem("daemun-presence", id);
-    } catch {
-      id = crypto.randomUUID();
+      let id: string;
+      try {
+        id = sessionStorage.getItem("daemun-presence") ?? uuid();
+        sessionStorage.setItem("daemun-presence", id);
+      } catch {
+        // sessionStorage can be blocked (private mode, storage disabled)
+        id = uuid();
+      }
+
+      const beat = () => {
+        if (document.visibilityState !== "visible") return;
+        fetch("/api/presence", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id }),
+          keepalive: true,
+        }).catch(() => {});
+      };
+
+      beat();
+      const timer = setInterval(beat, BEAT_MS);
+      document.addEventListener("visibilitychange", beat);
+      return () => {
+        clearInterval(timer);
+        document.removeEventListener("visibilitychange", beat);
+      };
+    } catch (err) {
+      console.warn("[presence] disabled:", (err as Error).message);
+      return;
     }
-
-    const beat = () => {
-      if (document.visibilityState !== "visible") return;
-      fetch("/api/presence", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
-        keepalive: true,
-      }).catch(() => {});
-    };
-
-    beat();
-    const timer = setInterval(beat, BEAT_MS);
-    document.addEventListener("visibilitychange", beat);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", beat);
-    };
   }, []);
 
   return null;
