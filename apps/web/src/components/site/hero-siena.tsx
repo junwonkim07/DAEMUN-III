@@ -7,7 +7,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import ReactLenis from "lenis/react";
 import { Cormorant_SC } from "next/font/google";
 import Link from "next/link";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { VideoPlayer } from "@/components/site/intro-video";
 import { ScheduleTimeline } from "@/components/site/schedule-timeline";
@@ -29,6 +29,22 @@ export function HeroSiena({
   const gallery = useRef(null);
   const gallery2 = useRef(null);
   const [playing, setPlaying] = useState(false);
+
+  /**
+   * The hero background video is desktop-only: phones render the poster still
+   * instead, which keeps ~2 MB off every mobile visit. The first paint is
+   * always the poster so server and client markup agree; the video swaps in
+   * after mount when the viewport is at least `md` wide.
+   */
+  const [showHeroVideo, setShowHeroVideo] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setShowHeroVideo(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const { scrollYProgress } = useScroll({
     target: gallery,
@@ -61,16 +77,25 @@ export function HeroSiena({
             </p>
           </div>
           <div className="absolute left-0 top-0 z-10 h-1/2 w-full bg-gradient-to-t from-transparent to-black/90" />
-          <motion.video
-            src="/main.mp4"
-            poster="/hero-gavel.jpg"
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ y, objectPosition: "50% 30%", scale: 1.15 }}
-          />
+          {showHeroVideo ? (
+            <motion.video
+              src="/main.mp4"
+              poster="/hero-gavel.jpg"
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ y, objectPosition: "50% 30%", scale: 1.15 }}
+            />
+          ) : (
+            <motion.img
+              src="/hero-gavel.jpg"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ y, objectPosition: "50% 30%", scale: 1.15 }}
+            />
+          )}
         </div>
 
         {/* ---- Title ---- */}
