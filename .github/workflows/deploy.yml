@@ -126,3 +126,14 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} \
             'cd /opt/daemun && for i in $(seq 1 20); do docker compose exec -T api wget -qO- http://localhost:4000/health && exit 0; sleep 3; done; echo "api not healthy"; docker compose logs --tail=50 api; exit 1'
+
+      # The public pages are ISR-cached (apps/web/src/app/layout.tsx). The build
+      # runs on this runner, where the API is unreachable, so the HTML baked into
+      # the image holds the bundled default content. Expire the "site" tag once
+      # web is up so the first visitor after a deploy gets a fresh render instead
+      # of placeholders. Same call the API makes after every admin edit; the
+      # secret is read inside the api container, never on this runner.
+      - name: Refresh cached pages
+        run: |
+          ssh -i ~/.ssh/deploy root@${{ secrets.VPS_HOST }} \
+            'cd /opt/daemun && for i in $(seq 1 20); do docker compose exec -T api sh -c "wget -qO- --post-data= --header=\"x-revalidate-secret: $REVALIDATE_SECRET\" http://web:3000/api/revalidate" && exit 0; sleep 3; done; echo "web did not accept revalidate"; docker compose logs --tail=30 web; exit 1'
