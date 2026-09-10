@@ -62,6 +62,13 @@ export const env = {
     model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
   },
 
+  /**
+   * Which storage backend uploaded files go to — see lib/storage. "local"
+   * writes to uploadDir on this server's own disk, which needs a persistent
+   * filesystem and a single long-lived process.
+   */
+  uploadDriver: process.env.UPLOAD_DRIVER ?? "local",
+  /** Where the "local" storage driver keeps files. */
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),
   maxUploadBytes: Number(process.env.MAX_UPLOAD_MB ?? 25) * 1024 * 1024,
 
