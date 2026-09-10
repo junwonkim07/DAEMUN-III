@@ -54,6 +54,15 @@ export const delegateRoutes = new Hono<AuthEnv>()
    * decision D — team co-editing is a fast-follow). The first upload
    * creates the resolution row with status "review"; a later re-upload
    * just swaps the file and leaves status where the admin left it.
+   *
+   * NOTE for the frontend (§6-1 part 2/2): this streams the file through the
+   * API. On a serverless host the request body is capped near 4.5 MB while
+   * MAX_UPLOAD_MB is 25, so a full-size resolution PDF cannot get through
+   * here. The admin panel already uploads straight to storage instead — see
+   * `GET /api/admin/uploads/config` + `POST /api/admin/uploads/token` in
+   * routes/uploads.ts and `uploadFile()` in apps/admin/src/lib/api.ts. Mirror
+   * that here (a delegate-scoped token route + the same client branch) before
+   * shipping the delegate UI; keep this multipart path for local-disk hosts.
    */
   .post("/resolutions", async (c) => {
     const ctx = await myTeamContext(c.get("session").user.id);

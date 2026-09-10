@@ -6,6 +6,11 @@
  * calling it throws — which is how the presence heartbeat took the whole
  * page down (React unmounts the root on an uncaught effect error).
  * `crypto.getRandomValues()` is available everywhere, so fall back to it.
+ *
+ * A twin of this lives in @daemun/shared for the admin panel. This file is
+ * deliberately NOT a re-export of it: the shared barrel also exports the zod
+ * schemas and defaultSite, and importing it from here would ship all of that
+ * in the client bundle of every public page (presence runs on all of them).
  */
 export function uuid(): string {
   const c = globalThis.crypto;
