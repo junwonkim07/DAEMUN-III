@@ -3,30 +3,16 @@
 // Shared by the admin uploads route and the delegate resolution-upload
 // route — both just need "take a multipart File, store it, hand back a URL".
 //
-// Where the bytes actually land is the storage driver's business (lib/storage);
-// validation and naming stay here so every entry point enforces the same rules.
+// Where the bytes land is the storage driver's business (lib/storage); the
+// rules about *what* may be stored live in @daemun/shared so the browser can
+// enforce the same ones when it uploads directly (see routes/uploads.ts).
 import { randomUUID } from "node:crypto";
-import path from "node:path";
+import { extensionOf, humanSize, uploadTypeOf, type SavedFile } from "@daemun/shared";
 import { env } from "../env";
 import { storage } from "./storage";
 
-const ALLOWED: Record<string, { kind: string; mime: string }> = {
-  ".jpg": { kind: "image", mime: "image/jpeg" },
-  ".jpeg": { kind: "image", mime: "image/jpeg" },
-  ".png": { kind: "image", mime: "image/png" },
-  ".webp": { kind: "image", mime: "image/webp" },
-  ".pdf": { kind: "PDF", mime: "application/pdf" },
-  ".doc": { kind: "DOC", mime: "application/msword" },
-  ".docx": {
-    kind: "DOC",
-    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  },
-};
-
-export function humanSize(bytes: number) {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+export { humanSize };
+export type { SavedFile };
 
 export class UploadRejectedError extends Error {
   constructor(
@@ -37,36 +23,43 @@ export class UploadRejectedError extends Error {
   }
 }
 
-export type SavedFile = {
-  url: string;
-  originalName: string;
-  kind: string;
-  bytes: number;
-  size: string;
-};
+/**
+ * Throws unless `filename`/`size` satisfy the upload rules. The direct-upload
+ * token route enforces the same list from @daemun/shared, so a browser cannot
+ * widen the rules by going around the API.
+ */
+function assertUploadAllowed(filename: string, size: number) {
+  const type = uploadTypeOf(filename);
+  if (!type) {
+    throw new UploadRejectedError(
+      `Unsupported file type ${extensionOf(filename) || "(none)"}`,
+      415,
+    );
+  }
+  if (size > env.maxUploadBytes) {
+    throw new UploadRejectedError(`File exceeds ${humanSize(env.maxUploadBytes)}`, 413);
+  }
+  return type;
+}
+
+/** A storage key that keeps the original extension but not the original name. */
+function keyFor(filename: string) {
+  return `${randomUUID()}${extensionOf(filename)}`;
+}
 
 /** Validates, stores under a random name, and reports back. */
 export async function saveUpload(file: File): Promise<SavedFile> {
-  const ext = path.extname(file.name).toLowerCase();
-  const allowed = ALLOWED[ext];
-  if (!allowed) {
-    throw new UploadRejectedError(`Unsupported file type ${ext || "(none)"}`, 415);
-  }
-  if (file.size > env.maxUploadBytes) {
-    throw new UploadRejectedError(`File exceeds ${humanSize(env.maxUploadBytes)}`, 413);
-  }
-
-  const key = `${randomUUID()}${ext}`;
+  const type = assertUploadAllowed(file.name, file.size);
   const { url } = await storage.put(
-    key,
+    keyFor(file.name),
     Buffer.from(await file.arrayBuffer()),
-    allowed.mime,
+    type.mime,
   );
 
   return {
     url,
     originalName: file.name,
-    kind: allowed.kind,
+    kind: type.kind,
     bytes: file.size,
     size: humanSize(file.size),
   };

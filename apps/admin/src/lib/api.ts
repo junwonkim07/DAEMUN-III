@@ -1,3 +1,13 @@
+import { upload } from "@vercel/blob/client";
+import {
+  extensionOf,
+  humanSize,
+  uploadTypeOf,
+  uuid,
+  type SavedFile,
+  type UploadConfig,
+} from "@daemun/shared";
+
 // 관리자 API 호출 얇은 래퍼. next.config.ts가 /api/*를 API 서버(:4000)로
 // rewrite하므로 여기서는 same-origin 상대 경로만 쓴다 — 세션 쿠키가
 // 자동으로 실린다 (handover.md §3).
@@ -92,20 +102,64 @@ export async function adminFetch<T>(
 }
 
 /** API의 업로드 상한 (apps/api/src/env.ts MAX_UPLOAD_MB 기본값과 동일). */
+/**
+ * 화면에서 파일 고르는 즉시(await 없이) 거르기 위한 낙관적 상한. 서버의
+ * MAX_UPLOAD_MB 기본값과 같은 값이고, 진짜 강제는 uploadFile()이 서버가
+ * 내려준 config로 한다.
+ */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-/** multipart 업로드. 허용: jpg/png/webp/pdf/doc/docx, 25MB (API가 강제). */
-export async function uploadFile(file: File): Promise<{
-  url: string;
-  originalName: string;
-  kind: string;
-  bytes: number;
-  size: string;
-}> {
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new ApiError(413, `File exceeds 25MB (${(file.size / 1024 / 1024).toFixed(1)}MB).`);
+/** 서버 설정은 한 번만 받아 재사용한다. 실패하면 다음 호출에서 다시 시도. */
+let configPromise: Promise<UploadConfig> | null = null;
+function uploadConfig(): Promise<UploadConfig> {
+  configPromise ??= adminFetch<UploadConfig>("/uploads/config").catch((err) => {
+    configPromise = null;
+    throw err;
+  });
+  return configPromise;
+}
+
+/**
+ * 파일 하나를 올리고 저장된 URL과 표시용 메타를 돌려준다.
+ *
+ * 서버가 로컬 디스크에 저장하는 배포에서는 예전처럼 API로 multipart POST를
+ * 한다. 오브젝트 스토리지를 쓰는 배포에서는 브라우저가 스토리지로 직접
+ * 올린다 — 서버리스 함수의 요청 바디 상한이 ~4.5MB라 25MB짜리 결의안 PDF가
+ * 함수를 통과하지 못하기 때문이다. 어느 경로든 호출자가 보는 반환값은 같다.
+ */
+export async function uploadFile(file: File): Promise<SavedFile> {
+  const type = uploadTypeOf(file.name);
+  if (!type) {
+    throw new ApiError(415, `Unsupported file type ${extensionOf(file.name) || "(none)"}`);
   }
-  const form = new FormData();
-  form.append("file", file);
-  return adminFetch("/uploads", { method: "POST", body: form });
+
+  const config = await uploadConfig();
+  if (file.size > config.maxBytes) {
+    throw new ApiError(
+      413,
+      `File exceeds ${humanSize(config.maxBytes)} (${humanSize(file.size)}).`,
+    );
+  }
+
+  if (config.mode === "proxy") {
+    const form = new FormData();
+    form.append("file", file);
+    return adminFetch("/uploads", { method: "POST", body: form });
+  }
+
+  // 스토리지 키는 브라우저가 만든다. crypto.randomUUID()는 보안 컨텍스트
+  // 전용이라 (#30) @daemun/shared의 uuid()를 쓴다.
+  const blob = await upload(`${uuid()}${extensionOf(file.name)}`, file, {
+    access: "public",
+    contentType: type.mime,
+    handleUploadUrl: "/api/admin/uploads/token",
+  });
+
+  return {
+    url: blob.url,
+    originalName: file.name,
+    kind: type.kind,
+    bytes: file.size,
+    size: humanSize(file.size),
+  };
 }
