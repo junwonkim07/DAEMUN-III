@@ -29,4 +29,10 @@ jobs:
 
       - run: pnpm -r lint
 
+      # next.config.ts refuses a production build without API_URL (it is baked
+      # into rewrites, and a silent localhost fallback used to reach deploys).
+      # This build is a smoke check whose output is never deployed, so give it
+      # an address that can never resolve rather than one that looks real.
       - run: pnpm -r build
+        env:
+          API_URL: http://api.invalid
