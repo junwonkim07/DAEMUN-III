@@ -34,7 +34,12 @@ type Form = {
   grade: string | null;
   committee: string | null;
   munExperience: string | null;
-  teamRole: string | null;
+  /**
+   * What the delegate *wants* to be. The role that actually gates uploads is
+   * `teamRole`, which only the admin sets when assigning a team — sending it
+   * from here is rejected by the API (input:false).
+   */
+  teamRolePreference: string | null;
 };
 
 const STEPS = ["name", "grade", "committee", "experience", "teamRole", "done"] as const;
@@ -81,7 +86,7 @@ export function Onboarding({
       grade: u.grade ?? null,
       committee: u.committee ?? null,
       munExperience: u.munExperience ?? null,
-      teamRole: u.teamRole ?? null,
+      teamRolePreference: u.teamRolePreference ?? null,
     });
   }
 
@@ -103,7 +108,7 @@ export function Onboarding({
             : step === "experience"
               ? form.munExperience !== null
               : step === "teamRole"
-                ? form.teamRole !== null
+                ? form.teamRolePreference !== null
                 : true;
 
   const go = (delta: number) => {
@@ -120,7 +125,7 @@ export function Onboarding({
     if (form.grade) patch.grade = form.grade;
     if (form.committee) patch.committee = form.committee;
     if (form.munExperience) patch.munExperience = form.munExperience;
-    if (form.teamRole) patch.teamRole = form.teamRole;
+    if (form.teamRolePreference) patch.teamRolePreference = form.teamRolePreference;
 
     if (Object.keys(patch).length > 0) {
       const { error: err } = await authClient.updateUser(patch);
@@ -177,7 +182,7 @@ export function Onboarding({
   const committee = committees.find((c) => c.slug === form.committee);
   const grade = GRADE_OPTIONS.find((g) => g.value === form.grade);
   const experience = MUN_EXPERIENCE_OPTIONS.find((e) => e.value === form.munExperience);
-  const teamRole = TEAM_ROLE_OPTIONS.find((r) => r.value === form.teamRole);
+  const teamRole = TEAM_ROLE_OPTIONS.find((r) => r.value === form.teamRolePreference);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -324,8 +329,8 @@ export function Onboarding({
                     icon={TEAM_ROLE_ICONS[i]}
                     label={r.label}
                     sub={r.sub}
-                    selected={form.teamRole === r.value}
-                    onSelect={() => setForm({ ...form, teamRole: r.value })}
+                    selected={form.teamRolePreference === r.value}
+                    onSelect={() => setForm({ ...form, teamRolePreference: r.value })}
                   />
                 ))}
               </StepFrame>
