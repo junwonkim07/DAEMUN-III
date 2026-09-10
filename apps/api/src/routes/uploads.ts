@@ -45,6 +45,11 @@ export const uploadRoutes = new Hono()
 
     try {
       const body = (await c.req.json()) as HandleUploadBody;
+      // Only the token-minting event is ever expected here; the upload-completed
+      // event exists for the callback we deliberately do not register below.
+      if (body?.type !== "blob.generate-client-token") {
+        return c.json({ error: "Unexpected event type" }, 400);
+      }
       const json = await handleUpload({
         body,
         request: c.req.raw,
@@ -58,19 +63,29 @@ export const uploadRoutes = new Hono()
             allowedContentTypes: [type.mime],
             maximumSizeInBytes: env.maxUploadBytes,
             addRandomSuffix: false,
+            // The client picks the key, so state outright that an existing
+            // object must never be replaced rather than lean on the API default.
+            allowOverwrite: false,
           };
         },
-        // Vercel calls this back out-of-band once the upload lands. Nothing to
-        // do here: the browser hands the URL to the mutation that writes the
-        // row, and an object no row ever references is collected by /gc.
-        onUploadCompleted: async () => {},
+        // Deliberately no onUploadCompleted. With it absent the SDK embeds no
+        // callback URL in the token, so nothing later tries to call /api/admin
+        // back without a session (and nothing warns off-Vercel). The browser
+        // hands the URL to the mutation that writes the row; an object no row
+        // ever references is collected by /gc.
       });
       return c.json(json);
     } catch (err) {
       if (err instanceof UploadRejectedError) {
         return c.json({ error: err.message }, err.status);
       }
-      return c.json({ error: (err as Error).message }, 400);
+      // A body we could not parse is the client's fault. Anything else — a
+      // missing BLOB_READ_WRITE_TOKEN, an upstream failure — is ours, so let
+      // app.onError mask it in production the way every other route does.
+      if (err instanceof SyntaxError) {
+        return c.json({ error: "Malformed request body" }, 400);
+      }
+      throw err;
     }
   })
 

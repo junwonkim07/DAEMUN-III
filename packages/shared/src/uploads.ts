@@ -29,7 +29,9 @@ export function extensionOf(filename: string): string {
   return dot === -1 ? "" : filename.slice(dot).toLowerCase();
 }
 
-export function uploadTypeOf(filename: string) {
+export function uploadTypeOf(
+  filename: string,
+): { kind: string; mime: string } | undefined {
   return UPLOAD_TYPES[extensionOf(filename)];
 }
 
@@ -53,8 +55,9 @@ export type SavedFile = {
  * it may upload straight to storage, and what the server will accept.
  */
 export type UploadConfig = {
-  /** "blob" -> upload directly from the browser; "local" -> POST through the API. */
+  /** "direct" -> upload straight to storage from the browser; "proxy" -> POST through the API. */
   mode: "direct" | "proxy";
   maxBytes: number;
+  /** The server's allow-list. The client checks against it so the list can be tightened without a frontend deploy. */
   extensions: string[];
 };

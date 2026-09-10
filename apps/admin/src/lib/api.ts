@@ -134,6 +134,11 @@ export async function uploadFile(file: File): Promise<SavedFile> {
   }
 
   const config = await uploadConfig();
+  // 서버의 허용 목록이 권위다. 위의 uploadTypeOf는 즉시 거르기 위한 것이고,
+  // 서버가 목록을 좁히면 프론트 재배포 없이 여기서 걸린다.
+  if (!config.extensions.includes(extensionOf(file.name))) {
+    throw new ApiError(415, `Unsupported file type ${extensionOf(file.name) || "(none)"}`);
+  }
   if (file.size > config.maxBytes) {
     throw new ApiError(
       413,
@@ -149,11 +154,20 @@ export async function uploadFile(file: File): Promise<SavedFile> {
 
   // 스토리지 키는 브라우저가 만든다. crypto.randomUUID()는 보안 컨텍스트
   // 전용이라 (#30) @daemun/shared의 uuid()를 쓴다.
-  const blob = await upload(`${uuid()}${extensionOf(file.name)}`, file, {
-    access: "public",
-    contentType: type.mime,
-    handleUploadUrl: "/api/admin/uploads/token",
-  });
+  let blob;
+  try {
+    blob = await upload(`${uuid()}${extensionOf(file.name)}`, file, {
+      access: "public",
+      contentType: type.mime,
+      handleUploadUrl: "/api/admin/uploads/token",
+    });
+  } catch (err) {
+    // upload()는 토큰 요청과 PUT을 스스로 하므로 adminFetch의 오류 규약을
+    // 거치지 않는다. 화면이 다른 실패와 같은 방식으로 다루도록 ApiError로
+    // 감싼다. 세션이 config를 받은 뒤에 만료된 좁은 경우엔 로그인
+    // 리다이렉트 대신 이 메시지가 보인다.
+    throw new ApiError(500, err instanceof Error ? err.message : "Upload failed.");
+  }
 
   return {
     url: blob.url,

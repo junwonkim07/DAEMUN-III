@@ -26,8 +26,10 @@ export function uuid(): string {
   if (c && typeof c.getRandomValues === "function") {
     c.getRandomValues(bytes);
   } else {
-    // Ancient browser — not cryptographically strong, but these ids only need
-    // to be unique, never unguessable by an attacker.
+    // Ancient browser — not cryptographically strong. Every browser that can
+    // run the admin panel has getRandomValues, so upload keys (whose
+    // unguessability is the only access control on a public store) never
+    // take this path; it exists for the anonymous presence id only.
     for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
   bytes[6] = (bytes[6]! & 0x0f) | 0x40; // version 4
