@@ -1,21 +1,26 @@
 // apps/api/src/lib/file-store.ts
 //
 // Shared by the admin uploads route and the delegate resolution-upload
-// route — both just need "take a multipart File, put it under UPLOAD_DIR,
-// hand back a /uploads/* URL".
+// route — both just need "take a multipart File, store it, hand back a URL".
+//
+// Where the bytes actually land is the storage driver's business (lib/storage);
+// validation and naming stay here so every entry point enforces the same rules.
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
 import path from "node:path";
 import { env } from "../env";
+import { storage } from "./storage";
 
-const ALLOWED: Record<string, string> = {
-  ".jpg": "image",
-  ".jpeg": "image",
-  ".png": "image",
-  ".webp": "image",
-  ".pdf": "PDF",
-  ".doc": "DOC",
-  ".docx": "DOC",
+const ALLOWED: Record<string, { kind: string; mime: string }> = {
+  ".jpg": { kind: "image", mime: "image/jpeg" },
+  ".jpeg": { kind: "image", mime: "image/jpeg" },
+  ".png": { kind: "image", mime: "image/png" },
+  ".webp": { kind: "image", mime: "image/webp" },
+  ".pdf": { kind: "PDF", mime: "application/pdf" },
+  ".doc": { kind: "DOC", mime: "application/msword" },
+  ".docx": {
+    kind: "DOC",
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
 };
 
 export function humanSize(bytes: number) {
@@ -40,24 +45,28 @@ export type SavedFile = {
   size: string;
 };
 
-/** Validates, writes to UPLOAD_DIR under a random name, and reports back. */
+/** Validates, stores under a random name, and reports back. */
 export async function saveUpload(file: File): Promise<SavedFile> {
   const ext = path.extname(file.name).toLowerCase();
-  const kind = ALLOWED[ext];
-  if (!kind) {
+  const allowed = ALLOWED[ext];
+  if (!allowed) {
     throw new UploadRejectedError(`Unsupported file type ${ext || "(none)"}`, 415);
   }
   if (file.size > env.maxUploadBytes) {
     throw new UploadRejectedError(`File exceeds ${humanSize(env.maxUploadBytes)}`, 413);
   }
 
-  const name = `${randomUUID()}${ext}`;
-  await fs.writeFile(path.join(env.uploadDir, name), Buffer.from(await file.arrayBuffer()));
+  const key = `${randomUUID()}${ext}`;
+  const { url } = await storage.put(
+    key,
+    Buffer.from(await file.arrayBuffer()),
+    allowed.mime,
+  );
 
   return {
-    url: `/uploads/${name}`,
+    url,
     originalName: file.name,
-    kind,
+    kind: allowed.kind,
     bytes: file.size,
     size: humanSize(file.size),
   };
