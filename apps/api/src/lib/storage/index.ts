@@ -4,11 +4,13 @@
  * where a different backend is wanted.
  */
 import { env } from "../../env";
+import { blobDriver } from "./blob";
 import { localDriver } from "./local";
 import type { StorageDriver } from "./types";
 
 const drivers: Record<string, StorageDriver> = {
   local: localDriver,
+  blob: blobDriver,
 };
 
 function pick(): StorageDriver {
