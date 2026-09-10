@@ -1,8 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { heartbeat } from "../lib/presence";
 import { asc, eq } from "drizzle-orm";
 import {
   chatRequestSchema,
@@ -139,8 +137,6 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
   };
 }
 
-const presenceSchema = z.object({ id: z.string().min(8).max(64) });
-
 /** 안내 챗봇 응답 하나를 못 만들었을 때 보여줄 기본 문구. */
 const CHAT_FALLBACK =
   "지금은 답변을 드리기 어려워요. 잠시 후 다시 시도하시거나, DAEMUN 공식 인스타그램/이메일로 문의해주세요.";
@@ -150,11 +146,6 @@ export const publicRoutes = new Hono()
     const data = await buildSiteData({ publicView: true });
     c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
     return c.json(data);
-  })
-  /** Visitor heartbeat for the admin "online now" counter (see lib/presence.ts). */
-  .post("/presence", zValidator("json", presenceSchema), (c) => {
-    heartbeat(c.req.valid("json").id);
-    return c.body(null, 204);
   })
 
   /**

@@ -11,7 +11,17 @@ export function databaseUrl() {
 }
 
 export function createDb(connectionString = databaseUrl()) {
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    // One long-lived process can hold pg's default of 10 idle connections
+    // without anyone noticing. Many short-lived serverless instances cannot:
+    // each would open its own ten against the database, so set DB_POOL_MAX
+    // low there (and point DATABASE_URL at a pooled endpoint). Idle
+    // connections are also released quickly so a frozen instance is not
+    // still holding them.
+    max: Number(process.env.DB_POOL_MAX ?? 10),
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS ?? 10_000),
+  });
 
   // node-postgres emits 'error' on the pool when an *idle* client's connection
   // drops underneath it — a Postgres restart (every `docker compose up -d` that

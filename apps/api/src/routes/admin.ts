@@ -42,9 +42,7 @@ import {
 } from "@daemun/db";
 import { db } from "../db";
 import { crudRoutes } from "../lib/crud";
-import { onlineCount } from "../lib/presence";
 import { revalidateWeb } from "../lib/revalidate";
-import { systemStats } from "../lib/system";
 import { requireAdmin } from "../middleware/auth";
 import { buildSiteData } from "./public";
 import { uploadRoutes } from "./uploads";
@@ -82,9 +80,13 @@ export const adminRoutes = new Hono()
   /* -- preview: exactly what the public site will receive ------------ */
   .get("/site", async (c) => c.json(await buildSiteData()))
 
-  /* -- overview numbers: live visitors, resolution pipeline, accounts, host -- */
+  /* -- overview numbers: resolution pipeline, accounts ---------------------
+   * Used to include an in-memory "online now" counter and the host's CPU/RAM/
+   * disk. Neither survives a serverless deployment — every instance would
+   * see its own slice of visitors, and there is no host to report on — so
+   * both were dropped rather than kept as numbers that look real but aren't. */
   .get("/stats", async (c) => {
-    const [byStatus, byRole, system] = await Promise.all([
+    const [byStatus, byRole] = await Promise.all([
       db
         .select({ status: resolutions.status, n: count() })
         .from(resolutions)
@@ -93,7 +95,6 @@ export const adminRoutes = new Hono()
         .select({ role: sql<string>`coalesce(${user.role}, '')`, n: count() })
         .from(user)
         .groupBy(sql`coalesce(${user.role}, '')`),
-      systemStats(),
     ]);
     const statusCounts = { awaiting: 0, review: 0, approved: 0, published: 0 };
     for (const r of byStatus) statusCounts[r.status] = Number(r.n);
@@ -101,14 +102,12 @@ export const adminRoutes = new Hono()
     for (const r of byRole) roleCounts[r.role] = Number(r.n);
     const sum = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
     return c.json({
-      online: onlineCount(),
       resolutions: { ...statusCounts, total: sum(statusCounts) },
       accounts: {
         participants: roleCounts["delegate"] ?? 0,
         admins: roleCounts["admin"] ?? 0,
         total: sum(roleCounts),
       },
-      system,
       generatedAt: new Date().toISOString(),
     });
   })

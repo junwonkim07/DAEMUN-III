@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/cn";
-import { formatBytes, formatUptime, useStats } from "@/lib/stats";
+import { formatBytes, useStats } from "@/lib/stats";
 import { useCleanupUploads } from "@/lib/uploads";
 
 export default function DashboardPage() {
@@ -16,7 +16,7 @@ export default function DashboardPage() {
       <PageHeader title="Overview">
         {data && (
           <p className="text-xs text-faint">
-            Auto-refreshes every 10 s · updated{" "}
+            Auto-refreshes every 60 s · updated{" "}
             {new Date(dataUpdatedAt).toLocaleTimeString("en-GB")}
           </p>
         )}
@@ -31,16 +31,10 @@ export default function DashboardPage() {
 
       {data && (
         <div className="mt-6 space-y-8">
-          {/* Live */}
+          {/* Accounts */}
           <section>
-            <SectionTitle>Live</SectionTitle>
+            <SectionTitle>Accounts</SectionTitle>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat
-                label="Online now"
-                value={data.online}
-                hint="visitors active on the public site in the last 2 minutes"
-                accent
-              />
               <Stat
                 label="Total participants"
                 value={data.accounts.participants}
@@ -72,22 +66,13 @@ export default function DashboardPage() {
             </p>
           </section>
 
-          {/* Server */}
+          {/* Storage */}
           <section>
-            <SectionTitle>Server</SectionTitle>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Gauge
-                label="CPU"
-                pct={data.system.cpu.usagePct}
-                detail={`load ${data.system.cpu.load1.toFixed(2)} · ${data.system.cpu.cores} core${data.system.cpu.cores === 1 ? "" : "s"}`}
-              />
-              <Usage label="RAM" used={data.system.memory.usedBytes} total={data.system.memory.totalBytes} />
-              <Usage label="Swap" used={data.system.swap.usedBytes} total={data.system.swap.totalBytes} />
-              <Usage label="Disk" used={data.system.disk.usedBytes} total={data.system.disk.totalBytes} />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <SectionTitle>Storage</SectionTitle>
+            <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs text-faint">
-                Host uptime {formatUptime(data.system.uptimeSec)}.
+                Replacing or removing a file never deletes the old one. Sweep the
+                orphans here.
               </p>
               <CleanupUploadsButton />
             </div>
@@ -135,52 +120,6 @@ function Stat({
         {value}
       </p>
       {hint && <p className="mt-1.5 text-[11px] text-faint">{hint}</p>}
-    </Card>
-  );
-}
-
-function barColor(pct: number) {
-  if (pct >= 90) return "bg-[#b23b3b]";
-  if (pct >= 75) return "bg-gold";
-  return "bg-navy";
-}
-
-function Bar({ pct }: { pct: number }) {
-  const clamped = Math.max(0, Math.min(100, pct));
-  return (
-    <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-line">
-      <div className={cn("h-full rounded", barColor(clamped))} style={{ width: `${clamped}%` }} />
-    </div>
-  );
-}
-
-function Gauge({ label, pct, detail }: { label: string; pct: number; detail: string }) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs text-muted">{label}</p>
-        <p className="text-sm font-medium tabular-nums text-ink">{pct.toFixed(0)}%</p>
-      </div>
-      <Bar pct={pct} />
-      <p className="mt-1 text-[11px] text-faint">{detail}</p>
-    </Card>
-  );
-}
-
-function Usage({ label, used, total }: { label: string; used: number; total: number }) {
-  const pct = total > 0 ? (used / total) * 100 : 0;
-  return (
-    <Card className="p-4">
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs text-muted">{label}</p>
-        <p className="text-sm font-medium tabular-nums text-ink">
-          {total > 0 ? `${pct.toFixed(0)}%` : "—"}
-        </p>
-      </div>
-      <Bar pct={pct} />
-      <p className="mt-1 text-[11px] text-faint">
-        {total > 0 ? `${formatBytes(used)} of ${formatBytes(total)}` : "not available"}
-      </p>
     </Card>
   );
 }
