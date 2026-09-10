@@ -19,7 +19,12 @@ export const authClient = createAuthClient({
         grade: { type: "string", required: false },
         committee: { type: "string", required: false },
         munExperience: { type: "string", required: false },
-        teamRole: { type: "string", required: false },
+        // Self-declared at sign-up. The role that gates uploads is teamRole
+        // below, which only the admin may set.
+        teamRolePreference: { type: "string", required: false },
+        // input:false here too, so a client that tries to send it fails to
+        // typecheck instead of getting a 400 from the API at runtime.
+        teamRole: { type: "string", required: false, input: false },
         teamId: { type: "string", required: false, input: false },
       },
     }),

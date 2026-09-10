@@ -42,7 +42,7 @@ export const delegateProfileSchema = z.object({
   /** committee slug (see `committeeSchema.slug`) */
   committee: z.string().trim().min(1),
   munExperience: munExperienceSchema,
-  teamRole: teamRoleSchema,
+  teamRolePreference: teamRoleSchema,
 });
 export type DelegateProfile = z.infer<typeof delegateProfileSchema>;
 
@@ -52,9 +52,9 @@ export function isProfileComplete(u: {
   grade?: string | null;
   committee?: string | null;
   munExperience?: string | null;
-  teamRole?: string | null;
+  teamRolePreference?: string | null;
 }): boolean {
-  return Boolean(u.name && u.grade && u.committee && u.munExperience && u.teamRole);
+  return Boolean(u.name && u.grade && u.committee && u.munExperience && u.teamRolePreference);
 }
 
 export const userRoleSchema = z.enum(["admin", "delegate"]);

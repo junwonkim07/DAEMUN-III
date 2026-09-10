@@ -40,10 +40,13 @@ export const auth = betterAuth({
       grade: { type: "string", required: false, input: true },
       committee: { type: "string", required: false, input: true },
       munExperience: { type: "string", required: false, input: true },
-      // §6-1: teamRole is self-declared at sign-up like the fields above.
-      // teamId is admin-only (input: false blocks self-service updateUser;
-      // it's written through PATCH /api/admin/users/:id/team instead).
-      teamRole: { type: "string", required: false, input: true },
+      // §6-1: at sign-up a delegate only states a *preference*. The role that
+      // gates uploads (teamRole) and the team itself (teamId) are admin-only:
+      // input:false blocks self-service updateUser, and they are written
+      // through PATCH /api/admin/users/:id/team instead. (teamRole used to be
+      // input:true, which let any team member promote themselves to lead.)
+      teamRolePreference: { type: "string", required: false, input: true },
+      teamRole: { type: "string", required: false, input: false },
       teamId: { type: "string", required: false, input: false },
     },
   },

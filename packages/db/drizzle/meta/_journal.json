@@ -43,6 +43,13 @@
       "when": 1788603852609,
       "tag": "0005_loud_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789021856708,
+      "tag": "0006_bizarre_maverick",
+      "breakpoints": true
     }
   ]
 }

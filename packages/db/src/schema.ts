@@ -265,6 +265,10 @@ export const user = pgTable("user", {
   // §6-1: self-declared at sign-up (input:true), team assignment is
   // admin-only (input:false) — see apps/api/src/auth.ts additionalFields.
   teamRole: text("team_role"),
+  // What the delegate picked at sign-up ("I'd like to be the lead"). A
+  // preference only: the admin decides teamRole when assigning the team, and
+  // teamRole is what the delegate upload gate checks.
+  teamRolePreference: text("team_role_preference"),
   teamId: text("team_id").references(() => teams.id, { onDelete: "set null" }),
 });
 
