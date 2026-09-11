@@ -318,4 +318,5 @@ curl -b cj.txt -H "Origin: http://localhost:3001" -X PATCH -H "Content-Type: app
 ## 12. 작업 이력
 
 - **이전**: `web/` 단일 Next.js 16 사이트. 콘텐츠는 `web/src/lib/conference.ts` 하드코딩. 커밋 `869fb82`.
+- **2026-09-11**: VPS(`104.36.69.86`) 퇴역, Vercel + Neon + Vercel Blob으로 이전. Docker Compose·Caddy·Dockerfile 삭제, `apps/api`는 서버리스 함수 하나(`api/index.mjs` + esbuild 번들)로, 업로드는 스토리지 드라이버 추상화 뒤의 Vercel Blob(브라우저 직업로드)으로, 마이그레이션은 부팅이 아니라 프로덕션 빌드 단계로. 데이터는 `pg_restore`로 이관.
 - **2026-09-02**: 모노레포 재편. `web → apps/web`, 루트 미디어 → `assets/source/`. `packages/shared`(zod 스키마, 타입, `defaultSite`), `packages/db`(Drizzle), `apps/api`(Hono) 신규. web 페이지를 `getSite()` 기반으로 전환, `conference.ts` 삭제. Docker Compose + Caddy 구성. Announcements 페이지(MDX) 추가. 어드민 패널은 오너 요청으로 제외.
