@@ -165,6 +165,21 @@ export const resolutions = pgTable("resolutions", {
   ...timestamps,
 });
 
+/**
+ * One row per upload of a resolution's draft (§6-1 upload versioning).
+ * Append-only — `resolutions.document` still holds the current file, this
+ * is the history alongside it. `uploads-gc.ts` must treat these as
+ * referenced too, or it deletes superseded drafts out from under this table.
+ */
+export const resolutionVersions = pgTable("resolution_versions", {
+  id: id(),
+  resolutionId: text("resolution_id")
+    .notNull()
+    .references(() => resolutions.id, { onDelete: "cascade" }),
+  document: text("document").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /* ------------------------------------------------------------------ */
 /*  FAQ (안내 챗봇 지식베이스 — SiteData에는 들어가지 않는다)          */
 /* ------------------------------------------------------------------ */
@@ -374,7 +389,7 @@ export const peopleRelations = relations(people, ({ one }) => ({
   }),
 }));
 
-export const resolutionsRelations = relations(resolutions, ({ one }) => ({
+export const resolutionsRelations = relations(resolutions, ({ one, many }) => ({
   committee: one(committees, {
     fields: [resolutions.committeeId],
     references: [committees.id],
@@ -386,6 +401,14 @@ export const resolutionsRelations = relations(resolutions, ({ one }) => ({
   team: one(teams, {
     fields: [resolutions.teamId],
     references: [teams.id],
+  }),
+  versions: many(resolutionVersions),
+}));
+
+export const resolutionVersionsRelations = relations(resolutionVersions, ({ one }) => ({
+  resolution: one(resolutions, {
+    fields: [resolutionVersions.resolutionId],
+    references: [resolutions.id],
   }),
 }));
 

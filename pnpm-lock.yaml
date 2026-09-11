@@ -148,6 +148,9 @@ importers:
       '@types/mdx':
         specifier: ^2.0.14
         version: 2.0.14
+      '@vercel/blob':
+        specifier: ^2.8.0
+        version: 2.8.0
       better-auth:
         specifier: ^1.7.2
         version: 1.7.2(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.23.1)(kysely@0.29.5)(pg@8.23.0))(next@16.3.3(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(pg@8.23.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

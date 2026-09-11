@@ -3,10 +3,11 @@
 // 변경은 /api/admin/resolutions CRUD + /api/admin/uploads.
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { z } from "zod";
 import {
   type Resolution,
+  type ResolutionVersion,
   type resolutionCreateSchema,
   type resolutionUpdateSchema,
 } from "@daemun/shared";
@@ -20,6 +21,15 @@ export type ResolutionPatch = z.input<typeof resolutionUpdateSchema>;
 export const resolutionHooks = makeResourceHooks<Resolution, NewResolution, ResolutionPatch>(
   "/resolutions",
 );
+
+/** 업로드 이력 (§6-1 버전 관리) — 열어볼 때만 fetch. */
+export function useResolutionVersions(resolutionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "resolutions", resolutionId, "versions"],
+    queryFn: () => adminFetch<ResolutionVersion[]>(`/resolutions/${resolutionId}/versions`),
+    enabled,
+  });
+}
 
 /** 파일 업로드 후 해당 결의안 document 필드를 갱신한다. */
 export function useUploadResolutionDoc() {

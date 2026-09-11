@@ -37,6 +37,7 @@ import {
   faqs,
   people,
   resolutions,
+  resolutionVersions,
   scheduleDays,
   scheduleItems,
   teams,
@@ -160,6 +161,16 @@ export const adminRoutes = new Hono()
       orderBy: (t) => [asc(t.committeeId)],
     }),
   )
+  /** Upload history for one resolution (§6-1 versioning), newest first. */
+  .get("/resolutions/:id/versions", async (c) => {
+    const rows = await db
+      .select()
+      .from(resolutionVersions)
+      .where(eq(resolutionVersions.resolutionId, c.req.param("id")))
+      .orderBy(desc(resolutionVersions.createdAt));
+    return c.json(rows);
+  })
+
   /**
    * Bulk "approved -> published" (§6-1). Only rows still `approved` move;
    * anything else (awaiting/review/already published) is left alone.
