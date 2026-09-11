@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "node scripts/vercel-build.mjs",
-  "regions": ["sin1"]
+  "regions": ["sin1"],
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }

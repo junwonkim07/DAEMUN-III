@@ -14,9 +14,13 @@ const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
-  // Docker: emit a self-contained server (see apps/web/Dockerfile)
-  output: "standalone",
-  outputFileTracingRoot: path.join(__dirname, "../.."),
+  // Docker: emit a self-contained server (see apps/web/Dockerfile). Docker-only:
+  // Vercel's builder does its own tracing and fails on standalone output in a
+  // workspace (it looks for .next/next-server.js.nft.json, which standalone
+  // mode never writes).
+  ...(process.env.VERCEL
+    ? {}
+    : { output: "standalone" as const, outputFileTracingRoot: path.join(__dirname, "../..") }),
   // Workspace packages are shipped as TypeScript source
   transpilePackages: ["@daemun/shared"],
   // Admin-uploaded photos (secretariat, committee images) render through
