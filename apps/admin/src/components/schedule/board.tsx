@@ -189,7 +189,12 @@ function ItemRow({
     update.mutateAsync({ id: item.id, patch: p });
 
   return (
-    <li className="rounded-lg border border-line bg-wash/60 p-2">
+    <li
+      className={cn(
+        "rounded-lg border border-line bg-wash/60 p-2",
+        item.urgent && "border-[#b23b3b]/40 bg-[#b23b3b]/5",
+      )}
+    >
       <div className="flex items-start gap-2">
         <div className="w-28 shrink-0">
           <InlineText
@@ -211,6 +216,15 @@ function ItemRow({
             onCommit={(v) => patch({ event: v })}
           />
         </div>
+        <label className="flex shrink-0 items-center gap-1.5 self-center text-xs text-body">
+          <input
+            type="checkbox"
+            checked={item.urgent}
+            disabled={busy}
+            onChange={(e) => patch({ urgent: e.target.checked })}
+          />
+          Emphasize
+        </label>
         <div className="flex shrink-0 items-center gap-0.5">
           <IconButton label="Move up" disabled={index <= 0 || busy} onClick={() => move(-1)}>
             ↑

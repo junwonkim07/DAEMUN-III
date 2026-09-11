@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { TBA } from "@/components/site/section";
 
-type ScheduleItem = { time: string; event: string };
+type ScheduleItem = { time: string; event: string; urgent: boolean };
 type ScheduleDay = { day: string; date: string; items: ScheduleItem[] };
 
 /**
@@ -80,16 +80,37 @@ function DaySection({
         {data.items.map((item, index) => (
           <li
             key={index}
-            className="flex items-start gap-4 border-b border-line py-5 last:border-b-0 sm:gap-6"
+            className={
+              item.urgent
+                ? "flex items-start gap-4 rounded-sm border-b border-line bg-gold/5 py-5 pl-3 last:border-b-0 sm:gap-6"
+                : "flex items-start gap-4 border-b border-line py-5 last:border-b-0 sm:gap-6"
+            }
           >
             <span
               aria-hidden
-              className="mt-[11px] size-2.5 shrink-0 rounded-full border border-line bg-wash"
+              className={
+                item.urgent
+                  ? "mt-[11px] size-2.5 shrink-0 rounded-full bg-gold"
+                  : "mt-[11px] size-2.5 shrink-0 rounded-full border border-line bg-wash"
+              }
             />
-            <span className="w-[104px] shrink-0 text-[16px] leading-8 text-muted tabular-nums sm:w-36 sm:text-[17px]">
+            <span
+              className={
+                item.urgent
+                  ? "w-[104px] shrink-0 text-[16px] leading-8 tabular-nums text-gold sm:w-36 sm:text-[17px]"
+                  : "w-[104px] shrink-0 text-[16px] leading-8 text-muted tabular-nums sm:w-36 sm:text-[17px]"
+              }
+            >
               <TBA value={item.time} />
             </span>
-            <span className="min-w-0 text-[19px] leading-8 text-body sm:text-[21px]">{item.event}</span>
+            <span className="min-w-0 text-[19px] leading-8 text-body sm:text-[21px]">
+              {item.event}
+              {item.urgent && (
+                <span className="font-roman ml-2 rounded-sm border border-gold/50 px-2 py-0.5 align-middle text-[11px] uppercase tracking-widest text-gold">
+                  Deadline
+                </span>
+              )}
+            </span>
           </li>
         ))}
       </ul>

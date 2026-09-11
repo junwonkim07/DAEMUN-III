@@ -57,6 +57,13 @@
       "when": 1789132160505,
       "tag": "0007_slim_inertia",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789134764536,
+      "tag": "0008_loving_ulik",
+      "breakpoints": true
     }
   ]
 }
