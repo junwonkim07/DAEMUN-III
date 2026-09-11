@@ -207,7 +207,8 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 - **Next.js 16은 학습 데이터의 Next와 다르다.** `middleware.ts` → `proxy.ts`, `revalidateTag(tag, opts)` 2번째 인자 필수, 캐시 모델 변경. `apps/web/node_modules/next/dist/docs/` 먼저 읽을 것.
 - `/api/auth/*`는 **Origin 헤더가 `ADMIN_URL`과 같아야** CSRF 통과. curl로 테스트할 땐 `-H "Origin: http://localhost:3001"`.
-- 시드는 `conference` 테이블이 비었을 때만 돈다. DB 초기화 = `data/postgres*` 삭제.
+- 시드는 `conference` 테이블이 비었을 때만 돈다. 로컬 DB 초기화 = `pnpm db:down` 후 `data/postgres-dev/` 삭제 (프로덕션은 Neon이라 해당 없음).
+- **서버리스에는 프로세스 메모리가 공유되지 않는다.** 챗봇 레이트 리미터(`lib/rate-limit.ts`, 분당 10회/IP)는 인스턴스마다 따로 세므로 전역 상한이 아니다. 실제 비용 방어선은 Gemini 무료 티어 쿼터다. 부팅 시 1회 작업(마이그레이션·시드·첫 관리자)도 같은 이유로 서버리스 엔트리에서 빠져 있다 (`apps/api/api/index.mjs`).
 - `packages/shared/src/default-site.ts`는 시드 원본이자 web 폴백. DB 시드 후엔 여기 고쳐도 사이트에 안 나옴 — 패널에서 고칠 것.
 - pnpm 10은 postinstall 차단. 네이티브 빌드 패키지는 `pnpm-workspace.yaml`의 `onlyBuiltDependencies`에 등록.
 - Windows에서 dev 서버 켜둔 채 `git mv` 하면 파일 잠금으로 실패할 수 있음.

@@ -20,7 +20,7 @@ type Msg = { role: "user" | "assistant"; content: string; local?: boolean };
 
 /** 서버(chatRequestSchema)는 40개까지 받고 10턴만 쓴다 — 넉넉히 20으로 자른다. */
 const MAX_HISTORY = 20;
-/** 서버·Caddy 본문 상한 64KB보다 여유 있게 — 넘으면 오래된 것부터 버린다. */
+/** 서버 본문 상한 64KB(라우트의 bodyLimit)보다 여유 있게 — 넘으면 오래된 것부터 버린다. */
 const MAX_BODY_BYTES = 48 * 1024;
 
 /** 보낼 이력: local 제외, 최근 MAX_HISTORY개, 그리고 크기 한도 안쪽까지. */
