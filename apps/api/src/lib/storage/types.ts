@@ -12,6 +12,8 @@
  */
 export type StoredObject = {
   key: string;
+  /** The URL callers persist for this object — what put() returned when it was written. */
+  url: string;
   size: number;
   /** Epoch millis the object was written; used by the orphan sweep's grace period. */
   uploadedAt: number;

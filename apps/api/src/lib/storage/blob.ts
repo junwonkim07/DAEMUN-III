@@ -33,7 +33,7 @@ export const blobDriver: StorageDriver = {
     do {
       const page = await list({ cursor });
       for (const b of page.blobs) {
-        out.push({ key: b.pathname, size: b.size, uploadedAt: b.uploadedAt.getTime() });
+        out.push({ key: b.pathname, url: b.url, size: b.size, uploadedAt: b.uploadedAt.getTime() });
       }
       cursor = page.hasMore ? page.cursor : undefined;
     } while (cursor);
