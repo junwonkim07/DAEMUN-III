@@ -115,17 +115,28 @@ export function SiteFooter({ conference }: { conference: Conference }) {
               <div className="font-roman text-[11px] uppercase tracking-widest text-white/40">
                 Instagram
               </div>
-              <a
-                href={conference.instagramUrl}
-                className="mt-3 inline-flex items-center gap-2 text-[14px] text-white/70 transition-colors hover:text-white"
-              >
-                <InstagramIcon size={15} />
-                {conference.instagram === "TBA" ? (
-                  <TBA value="TBA" />
-                ) : (
-                  <span>@{conference.instagram}</span>
+              <div className="mt-3 flex flex-col gap-2">
+                <a
+                  href={conference.instagramUrl}
+                  className="inline-flex items-center gap-2 text-[14px] text-white/70 transition-colors hover:text-white"
+                >
+                  <InstagramIcon size={15} />
+                  {conference.instagram === "TBA" ? (
+                    <TBA value="TBA" />
+                  ) : (
+                    <span>@{conference.instagram}</span>
+                  )}
+                </a>
+                {conference.instagram2 && (
+                  <a
+                    href={conference.instagramUrl2}
+                    className="inline-flex items-center gap-2 text-[14px] text-white/70 transition-colors hover:text-white"
+                  >
+                    <InstagramIcon size={15} />
+                    <span>@{conference.instagram2}</span>
+                  </a>
                 )}
-              </a>
+              </div>
             </div>
             <div>
               <div className="font-roman text-[11px] uppercase tracking-widest text-white/40">

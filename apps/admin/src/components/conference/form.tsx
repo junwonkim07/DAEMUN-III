@@ -31,6 +31,8 @@ const GROUPS: {
       { key: "email", label: "Email", help: "TBA if not yet set" },
       { key: "instagram", label: "Instagram handle", help: "Without @. TBA if not yet set" },
       { key: "instagramUrl", label: "Instagram URL", help: "# if not set" },
+      { key: "instagram2", label: "Instagram handle (2nd account)", help: "Without @. Leave blank to hide" },
+      { key: "instagramUrl2", label: "Instagram URL (2nd account)", help: "Leave blank to hide" },
       { key: "address", label: "Address", help: "TBA if not yet set" },
     ],
   },

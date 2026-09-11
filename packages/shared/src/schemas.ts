@@ -26,6 +26,8 @@ export const conferenceSchema = z.object({
   email: str,
   instagram: str,
   instagramUrl: str,
+  instagram2: str,
+  instagramUrl2: str,
   address: str,
   firstHeld: str,
   aboutLead: str,

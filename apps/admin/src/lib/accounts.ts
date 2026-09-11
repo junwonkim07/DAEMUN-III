@@ -5,6 +5,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { adminFetch } from "./api";
 import { authClient } from "./auth-client";
 
 export type AdminUser = {
@@ -19,6 +20,8 @@ export type AdminUser = {
   grade?: string | null;
   committee?: string | null;
   munExperience?: string | null;
+  teamId?: string | null;
+  teamRole?: string | null;
 };
 
 const USERS_KEY = ["admin", "users"] as const;
@@ -74,3 +77,22 @@ export const useBanUser = () =>
 
 export const useUnbanUser = () =>
   useAdminMutation<{ userId: string }>((v) => authClient.admin.unbanUser(v));
+
+/**
+ * Team assignment isn't something the better-auth admin plugin models, so
+ * this hits a plain custom route instead (PATCH /api/admin/users/:id/team).
+ */
+export function useAssignTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      userId,
+      ...patch
+    }: {
+      userId: string;
+      teamId?: string | null;
+      teamRole?: "lead" | "member" | null;
+    }) => adminFetch<AdminUser>(`/users/${userId}/team`, { method: "PATCH", json: patch }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: USERS_KEY }),
+  });
+}

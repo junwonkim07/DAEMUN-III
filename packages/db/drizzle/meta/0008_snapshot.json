@@ -1,6 +1,6 @@
 {
-  "id": "568058e8-4a35-45b7-ac40-1fb9e383d3cb",
-  "prevId": "1400c5b4-bd4f-4f2a-a121-3b2848908c00",
+  "id": "d272fca2-13ba-4331-827c-b0a55900341e",
+  "prevId": "568058e8-4a35-45b7-ac40-1fb9e383d3cb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -939,6 +939,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "urgent": {
+          "name": "urgent",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "sort_order": {
           "name": "sort_order",
