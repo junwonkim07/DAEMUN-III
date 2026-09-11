@@ -24,7 +24,7 @@
 | `apps/api` 콘텐츠 API | 완성. 인증, 콘텐츠 CRUD, 파일 업로드, 캐시 무효화 웹훅 |
 | `packages/db` 스키마·마이그레이션·시드 | 완성. 마이그레이션 1개 (`0000_thankful_ozymandias.sql`) |
 | `packages/shared` zod 스키마·타입·기본 콘텐츠 | 완성 |
-| Docker Compose 배포 구성 | 작성됨. **실제 VPS에 올려본 적은 아직 없음** |
+| 배포 | **Vercel + Neon + Blob 운영 중** (→ §9). 2026-09-11 VPS에서 이전 |
 | **어드민 패널 UI** | **없음. 다음 담당자가 만든다** (→ §8) |
 
 콘텐츠 자체는 대부분 `TBA` 플레이스홀더다 (날짜, 장소, 의제, 사무국 직책). 실제 값은 어드민 패널이 생기면 거기서 입력한다. **사무국 역할 배정은 사진·이름만 실제이고 직책은 임시**라는 점을 유의. 누가 어떤 직책인지는 반드시 확인 후 수정.
@@ -41,11 +41,9 @@ apps/
 packages/
   db/           Drizzle 스키마, SQL 마이그레이션, 시드
   shared/       zod 스키마 + TS 타입 + 기본 콘텐츠(defaultSite)
-deploy/
-  Caddyfile     TLS 종료 + 리버스 프록시
 assets/source/  원본 미디어(영상, 문서, 프로필 사진). 서빙되지 않음
 design/         디자인 캔버스 (.dc.html). 참고용
-docker-compose.yml       프로덕션 (postgres, api, web, caddy)
+apps/*/vercel.json       Vercel 프로젝트 설정 (리전, 프레임워크, 빌드 명령)
 docker-compose.dev.yml   로컬 개발용 postgres만
 .claude/launch.json      개발 서버 실행 설정 (Claude Code용)
 ```
@@ -65,11 +63,11 @@ docker-compose.dev.yml   로컬 개발용 postgres만
 | 모노레포 (pnpm workspaces) | web·api·admin이 같은 타입과 zod 스키마를 공유해야 함 |
 | **Hono + Drizzle + PostgreSQL** | TypeScript 네이티브, 가볍고, 보일러플레이트가 적음. NestJS·Supabase·Next 내장 API 라우트도 후보였으나 이걸로 결정 |
 | **better-auth 이메일+비밀번호** | 외부 의존 없음. 공개 가입은 막고 관리자가 계정 발급. `admin` 플러그인으로 유저 관리 API까지 제공. Google 로그인은 선택 안 함 |
-| **VPS 한 대 + Docker Compose** | 프론트·백엔드·DB 전부 한 서버. Vercel/Railway 분리 안 함 |
+| **Vercel(web·api·admin) + Neon(Postgres) + Vercel Blob(업로드)** | 처음엔 VPS 한 대 + Docker Compose였으나 2026-09-11 이전. 전부 무료 티어, 관리할 서버 없음. API는 Hono 앱을 esbuild로 번들해 함수 하나로 올린다 (`apps/api/api/index.mjs`) |
 | DB id는 `text` (uuid 타입 아님) | 시드 데이터가 `ecosoc`, `kim-junwon` 같은 읽기 쉬운 id를 쓸 수 있고, `packages/shared`의 기본 콘텐츠를 web 폴백과 시드에 동시에 재사용 가능. 새 행은 `crypto.randomUUID()` |
 | web은 API 장애 시 `defaultSite`로 폴백 | 컨퍼런스 당일 API가 죽어도 사이트는 떠 있어야 함 |
 | API에 CORS 없음 | 프론트가 Next.js rewrites로 `/api/*`, `/uploads/*`를 API에 프록시 → 브라우저 입장에선 전부 same-origin. 쿠키 문제도 사라짐 |
-| 마이그레이션·시드·첫 관리자 생성을 API 부팅 시 자동 실행 | VPS에서 `docker compose up` 한 번으로 끝나게 |
+| 마이그레이션은 프로덕션 빌드 단계에서, 시드·첫 관리자는 로컬 부팅 시 | 서버리스엔 "부팅 한 번"이 없다. `apps/api/scripts/vercel-build.mjs`가 번들 전에 마이그레이션을 적용하고, `bootstrap()`은 로컬 `pnpm dev:api`에서만 돈다 |
 | API는 프로덕션에서도 `tsx`로 실행 | 빌드 단계 제거. 이 규모에선 성능 차이 무의미 |
 | 어드민 패널은 이번에 안 만듦 | 오너 요청. 기반과 API만 정리하고 UI는 다음 담당자에게 |
 
@@ -223,7 +221,7 @@ POST /api/auth/admin/remove-user
 - 인증은 API에 있고 `/api/auth/*`로 노출된다. 쿠키 이름은 `better-auth.session_token` (https에선 `__Secure-` 접두사).
 - **어드민 프론트는 `/api/*`와 `/uploads/*`를 API로 rewrite해야 한다.** 그래야 세션 쿠키가 어드민 도메인의 first-party 쿠키가 된다. Next.js면 `next.config.ts`의 `rewrites()`에서 `destination: \`${API_URL}/api/:path*\``.
 - API의 `ADMIN_URL` 환경변수 = 어드민 프론트의 공개 origin (예: `https://admin.daemun.org`). better-auth의 `baseURL`이자 `trustedOrigins`라서 **이게 틀리면 CSRF 검사에서 전부 막힌다.** 로컬 기본값은 `http://localhost:3001`.
-- `docker-compose.yml`은 현재 `ADMIN_URL=https://${API_DOMAIN}`으로 되어 있다. 어드민 프론트가 생기면 **그 도메인으로 바꿔야 한다.**
+- 프로덕션의 `ADMIN_URL`은 Vercel `daemun-api`의 환경변수다 (`https://daemun-admin.vercel.app`). 도메인이 바뀌면 여기와 `WEB_PUBLIC_URL`·`WEB_URL`을 같이 바꾸고 api를 재배포.
 - 첫 관리자는 `ADMIN_EMAIL` / `ADMIN_PASSWORD`로 API 부팅 시 자동 생성된다 (user 테이블이 비어 있을 때만).
 - `requireAdmin` 미들웨어(`apps/api/src/middleware/auth.ts`)가 세션·밴·role을 검사한다. 어드민 프론트에서 라우트 보호는 쿠키 존재 여부만 낙관적으로 확인하고 (Next 16은 `proxy.ts`), 실제 권한은 API가 판단하게 두면 된다.
 
@@ -269,23 +267,21 @@ curl -b cj.txt -H "Origin: http://localhost:3001" -X PATCH -H "Content-Type: app
 - `apps/web/src/content/guide/documents.mdx`는 아직 문서 링크가 정적이다. `documents` 테이블을 쓰도록 바꿀지 결정 필요 (지금은 DB와 MDX 양쪽에 같은 목록이 있음).
 - Announcements를 어드민에서 쓰고 싶으면 테이블 + CRUD 추가 (`lib/crud.ts` 팩토리에 스키마 하나 넘기면 끝).
 - `ScheduleTimeline` 컴포넌트는 만들어져 있지만 어느 페이지에서도 안 쓴다. `schedule` 데이터도 API는 내려주지만 사이트에 표시 안 됨.
-- 실제 VPS 배포 및 백업 스크립트 (`data/postgres` 덤프).
+- DB 백업. Neon Free의 시점 복구 창은 짧다 — 주기적 `pg_dump`를 어딘가에 걸 것.
 
 ---
 
-## 9. 배포 (VPS 한 대)
+## 9. 배포 (Vercel + Neon + Blob)
 
-```bash
-git clone ... && cd DAEMUN-III
-cp .env.example .env      # 도메인, 비밀번호, 시크릿, 첫 관리자 계정 채우기
-docker compose up -d --build
-```
+프로젝트 3개가 한 저장소를 root directory만 다르게 본다: `daemun-web` → `apps/web`, `daemun-api` → `apps/api`, `daemun-admin` → `apps/admin`. 설정은 각 `apps/*/vercel.json`(리전 `sin1`, 프레임워크, 빌드 명령)과 Vercel 프로젝트 환경변수에 있다.
 
-- Caddy가 `WEB_DOMAIN`, `API_DOMAIN`의 인증서를 자동 발급한다. DNS A 레코드를 먼저 VPS IP로.
-- 영속 데이터는 전부 `./data/` (postgres, uploads, caddy 인증서). **이 폴더만 백업하면 된다.**
-- 시크릿 생성: `openssl rand -base64 32`
-- 로그: `docker compose logs -f api`
-- 업데이트: `git pull && docker compose up -d --build`
+- **자동 배포**: main 머지 → `.github/workflows/deploy.yml`이 `vercel deploy --prod` (api → web → admin). GitHub 시크릿 `VERCEL_TOKEN`이 있어야 한다. Vercel GitHub 연동(계정 → Login Connections → GitHub)을 붙이면 워크플로우 없이 push마다 배포되고 PR마다 프리뷰가 생긴다 — 그땐 워크플로우를 지운다.
+- **수동 배포**: 레포 루트에서 `vercel link --project <이름> --scope junwon-9966` 후 `vercel deploy --prod`. 서브디렉터리에서 돌리면 그 디렉터리만 올라가 실패한다.
+- **API 빌드** (`apps/api/scripts/vercel-build.mjs`): 프로덕션이면 `MIGRATE_DATABASE_URL`(direct 엔드포인트)로 마이그레이션 적용 → esbuild로 `dist/app.mjs` 번들 → `api/index.mjs`가 그걸 import. 프리뷰는 마이그레이션을 건너뛴다.
+- **환경변수** (`.env.example` 참고): api — `DATABASE_URL`(pooled) `MIGRATE_DATABASE_URL` `DB_POOL_MAX=5` `UPLOAD_DRIVER=blob` `BLOB_READ_WRITE_TOKEN`(스토어 연결 시 자동) `BETTER_AUTH_SECRET` `REVALIDATE_SECRET` `ADMIN_URL` `WEB_PUBLIC_URL` `WEB_URL` (+ SMTP). web — `API_URL` `REVALIDATE_SECRET`. admin — `API_URL`. 바꾸면 해당 프로젝트 재배포.
+- **로그**: `vercel logs https://daemun-api.vercel.app` (Hobby는 1시간 보관). SMTP가 비어 있으면 가입 인증·비밀번호 재설정 링크가 여기 찍힌다.
+- **데이터**: Neon 콘솔(프로젝트 `daemun-iii`)에서 SQL·브랜치·복구. 업로드 파일은 Vercel 대시보드 → Storage → `daemun-uploads`. 어드민 Overview의 "Clean up unused uploads"가 고아 객체를 정리한다.
+- **한도** (Hobby/Free): 전송량 100GB/월, 함수 호출 100만/월, Neon 0.5GB·100 CU-시간/월(5분 유휴 시 잠듦 → 첫 요청 ~3초), Blob 한도 초과 시 과금 대신 차단. 히어로 영상이 데스크톱 방문당 ~2MB라 월 수만 방문은 여유.
 
 환경변수 전체 목록은 `.env.example`과 `apps/api/src/env.ts`.
 
@@ -294,7 +290,7 @@ docker compose up -d --build
 ## 10. 함정 / 알아둘 것
 
 - **Next.js 16은 학습 데이터의 Next와 다르다.** `middleware.ts` → `proxy.ts`, `revalidateTag`는 2번째 인자 필수, 캐시 모델 변경 등. `apps/web/node_modules/next/dist/docs/`를 읽고 작업할 것.
-- web의 `layout.tsx`에 `export const revalidate = 0`이 있다. 빌드 시점에 API가 없어도 되게 하려는 것이니 지우지 말 것. 데이터 캐시는 `getSite()` 안의 fetch 옵션이 담당한다.
+- web의 `layout.tsx`는 `export const revalidate = 60` (ISR). 어드민 저장 시 API가 `POST /api/revalidate`로 즉시 무효화하므로 반영은 바로 된다. 빌드 시 API에 못 닿으면 `getSite()`가 `defaultSite`로 폴백하고 첫 재검증에서 실데이터로 바뀐다.
 - pnpm 10은 postinstall을 기본 차단한다. 네이티브 빌드가 필요한 패키지를 추가하면 `pnpm-workspace.yaml`의 `onlyBuiltDependencies`에 넣어야 한다.
 - `apps/web/src/app/main.gif` (91MB)는 gitignore. 사이트는 `public/main.mp4`를 쓴다.
 - skiper-ui 컴포넌트(`apps/web/src/components/ui/skiper-ui/`)는 유료 라이선스. `SKIPER_LICENSE_KEY` 필요.
@@ -313,7 +309,7 @@ docker compose up -d --build
 - `sign-in/email` → 세션 쿠키 발급 → `GET /api/admin/conference` 200 확인
 - 사이트(`:3000`)가 API 데이터로 렌더링됨 (Secretariat, Committees, Resolutions)
 
-검증 안 된 것: Docker 이미지 빌드(`apps/*/Dockerfile`), 실제 VPS 배포, Caddy 인증서 발급. 처음 배포할 때 이 셋을 먼저 확인.
+2026-09-11 Vercel 프로덕션에서 재검증: 25MB 직업로드·26MB 거부·타입 위조 거부, 가입 → 인증 링크 → 로그인 → 세션 쿠키 왕복, ISR 캐시(`X-Vercel-Cache: PRERENDER`), 빌드 단계 마이그레이션, 함수 리전 `sin1`.
 
 ---
 

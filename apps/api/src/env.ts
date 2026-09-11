@@ -22,8 +22,8 @@ export const env = {
   /** Public origin of the admin panel — auth cookies live there. */
   adminUrl,
   /**
-   * Where the API reaches the web app (revalidate webhook). Inside Docker
-   * Compose this is the service name, so it is *not* a browser-facing URL.
+   * Where the API reaches the web app (revalidate webhook). On the hosted
+   * stack this is the site's public origin; locally, the dev server.
    */
   webUrl: process.env.WEB_URL ?? "http://localhost:3000",
   /**
