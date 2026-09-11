@@ -145,6 +145,12 @@ export const publicRoutes = new Hono()
   .get("/site", async (c) => {
     const data = await buildSiteData({ publicView: true });
     c.header("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+    // The header above is for browsers. Vercel's edge would honour it too and
+    // keep serving a copy for up to max-age + stale-while-revalidate, which
+    // breaks the one thing this endpoint must do: return fresh data the moment
+    // the web app refetches after revalidateTag(). The web app already has its
+    // own 60 s data cache with tag invalidation, so an edge copy buys nothing.
+    c.header("Vercel-CDN-Cache-Control", "no-store");
     return c.json(data);
   })
 
