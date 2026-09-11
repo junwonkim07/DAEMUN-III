@@ -1,7 +1,10 @@
 /**
- * Serverless entrypoint. Vercel turns this file into one function that
- * receives every request under /api/*. src/index.ts stays the entrypoint for
- * a long-lived Node process (local dev, the VPS).
+ * Serverless entrypoint. Vercel turns this file into one function, and the
+ * [...route] catch-all in the filename is what makes every request under
+ * /api/* reach it. (The optional form [[...route]] is a Next.js convention;
+ * plain Vercel routing takes it literally — the first deploy mounted the
+ * function at /api/[[...route]] and 404'd everything else.) src/index.ts
+ * stays the entrypoint for a long-lived Node process (local dev, the VPS).
  *
  * Why two lines of .mjs rather than importing the TypeScript app directly:
  *
@@ -24,6 +27,10 @@
  *   to typecheck here; src/ is covered by `pnpm typecheck`, and
  *   `"framework": null` in vercel.json keeps Vercel from also auto-building
  *   src/index.ts as a second function.
+ *
+ * - ../public/ is empty and exists only because the "Other" preset refuses to
+ *   finish a deploy without a static output directory. Nothing is served
+ *   from it.
  *
  * What deliberately does NOT happen here, compared with src/index.ts:
  *
