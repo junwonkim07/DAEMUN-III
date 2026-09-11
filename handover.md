@@ -17,7 +17,7 @@
 | API | https://daemun-api.vercel.app — `GET /health`, `GET /api/public/site` 로 확인 |
 | DB | **Neon** Free (프로젝트 `daemun-iii`, 싱가포르, PG 17, 0.5GB). 접속 문자열은 Vercel `daemun-api` 환경변수 `DATABASE_URL`(pooled, 런타임) / `MIGRATE_DATABASE_URL`(direct, 빌드 시 마이그레이션) |
 | 업로드 | **Vercel Blob** 스토어 `daemun-uploads` (public, `sin1`), `daemun-api`에 연결돼 토큰이 자동 주입. 브라우저가 스토어에 직접 올린다 (`apps/api/src/routes/uploads.ts`) — 25MB까지 |
-| 배포 | **main 머지 = 배포.** `.github/workflows/deploy.yml`이 `vercel deploy --prod`로 api → web → admin을 올린다. GitHub 시크릿 `VERCEL_TOKEN`이 필요하며 없으면 건너뛴다 (§7). Vercel GitHub 연동을 붙이면 워크플로우 없이 push마다 배포되고 PR마다 프리뷰가 생긴다 |
+| 배포 | **2026-09-11 현재 자동 배포는 꺼져 있다.** `.github/workflows/deploy.yml`은 GitHub 시크릿 `VERCEL_TOKEN`이 있을 때만 `vercel deploy --prod`(api → web → admin)를 돌리고, 없으면 안내만 찍고 green으로 끝난다 — **지금은 토큰이 없어서 main 머지가 아무것도 배포하지 않는다.** 토큰을 넣거나(Vercel → Account Settings → Tokens) 각 Vercel 프로젝트 Settings → Git에서 이 저장소를 연결할 때까지는 §7의 수동 배포가 유일한 경로 |
 | 도메인 | 아직 없음. 생기면 Vercel 프로젝트에 도메인을 붙이고 `ADMIN_URL`·`WEB_PUBLIC_URL`·`WEB_URL`·`API_URL` 환경변수를 바꾼 뒤 3개 재배포 (§3 — 하나라도 틀리면 로그인 전부 403) |
 | 관리자 계정 | `admin@daemun.local` 외 2명. 비밀번호는 김준원에게 요청 |
 | 옛 VPS | `104.36.69.86` — 2026-09-11 데이터 이전 후 **퇴역**. 더 이상 배포되지 않고, 그쪽 어드민에서 저장한 것은 어디에도 반영되지 않는다. 서버 자체는 오너가 끈다 |
@@ -37,9 +37,9 @@
 | ------------------------ | ------------------------------------------------------------------------ |
 | 공개 사이트`apps/web`  | 완성. API에서 콘텐츠 읽음, API 죽으면`defaultSite`로 폴백              |
 | API`apps/api`          | 완성. 인증 + 모든 콘텐츠 CRUD + 파일 업로드 + 캐시 무효화                |
-| DB`packages/db`        | 완성. 마이그레이션 1개, 부팅 시 자동 마이그레이션·시드                  |
-| **어드민 패널 UI** | **없음 — 당신이 만든다.** API는 패널에 필요한 모든 것을 이미 제공 |
-| 실제 배포                | **운영 중 (Vercel + Neon + Blob).** https://daemun-web.vercel.app (사이트), https://daemun-api.vercel.app (API). main 머지 시 자동 배포 (§0) |
+| DB`packages/db`        | 완성. 마이그레이션 7개 (`0000`–`0006`). 로컬은 API 부팅 시 자동 마이그레이션·시드, 프로덕션은 `daemun-api` 빌드 시 마이그레이션만 |
+| 어드민 패널 `apps/admin` | 로그인·결의안 현황판·사무국·계정·문서·일정 등 완료, 나머지는 §5 순서로. Vercel `daemun-admin`으로 배포 |
+| 실제 배포                | **운영 중 (Vercel + Neon + Blob).** https://daemun-web.vercel.app (사이트), https://daemun-api.vercel.app (API). 배포 절차는 §0·§7 — 자동 배포는 `VERCEL_TOKEN` 설정 전까지 꺼져 있음 |
 
 콘텐츠는 대부분 `TBA` 플레이스홀더. 사무국 **직책 배정은 맞음...!**— 그러나 패널에서 향후 MUN 개최시 수정 가능하게 만드는것
 
@@ -94,7 +94,7 @@ REVALIDATE_SECRET=dev
    // auth.signIn.email({ email, password }), auth.useSession(), auth.admin.createUser(...)
    ```
 
-   공개 회원가입은 꺼져 있다. 계정은 관리자가 `auth.admin.createUser`로 발급.
+   공개 사이트에서 참가자 셀프 가입이 열려 있다 (role은 항상 `delegate`, 이메일 인증 필수). 관리자 계정만 `auth.admin.createUser` 또는 `set-role`로 발급.
 
 라우트 보호는 패널에서 쿠키 유무만 낙관적으로 보고(Next 16은 `proxy.ts`), 실제 권한은 API의 `requireAdmin`(세션·밴·`role === "admin"`)이 판단한다. 401 → 로그인 페이지로, 403 → 권한 없음 화면.
 
@@ -157,7 +157,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 회의에서 확정된 흐름:
 
-1. 참가자(팀장)가 **직접 계정을 만들고 로그인**한다. 회의록 원문은 "로그인 회원가입 창을 만들어서 계정을 만들라고 해" — 즉 **셀프 회원가입**. 지금 API는 `disableSignUp: true`라 관리자 발급만 되므로, 참가자용 가입은 열되 `role`이 `admin`이 되지 않게 해야 한다 (아래 주의).
+1. 참가자(팀장)가 **직접 계정을 만들고 로그인**한다. 회의록 원문은 "로그인 회원가입 창을 만들어서 계정을 만들라고 해" — 즉 **셀프 회원가입**. **(완료)** 셀프 가입이 열려 있고 `defaultRole: "delegate"`다 (`apps/api/src/auth.ts`).
 2. 팀장이 완성한 결의안 PDF를 마이페이지 또는 Resolutions 페이지의 Upload 버튼으로 올린다.
 3. 올린 파일은 **사무국·의장만 볼 수 있고 다른 팀에게는 비공개**. 사무국은 각 팀의 진행 상황(올렸는지, 리뷰 중인지)을 볼 수 있어야 한다.
 4. 상태 3단계: 미제출(`awaiting`) / 리뷰 중(`review`) / 승인(`approved`). 현재 enum과 동일.
@@ -166,7 +166,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 필요한 확장:
 
-- 참가자 role. `user.role`에 `"delegate"`(또는 `"team"`) 추가, 팀 ↔ 위원회/의제 매핑 테이블. **주의: `apps/api/src/auth.ts`의 admin 플러그인이 `defaultRole: "admin"`이라 가입·`createUser`에 role을 안 넘기면 관리자가 된다.** 셀프 가입을 열면 `defaultRole`을 반드시 `"delegate"`로 바꿀 것. `requireAdmin`은 `role === "admin"`만 통과시키므로 참가자용 라우트는 별도 미들웨어.
+- 참가자 role — **완료**: `user.role` `"delegate"`, `teams` 테이블(#26), `defaultRole: "delegate"`(#37에서 `teamRole`·`teamId`도 관리자 전용으로 잠금). `requireAdmin`은 `role === "admin"`만 통과시키므로 참가자용 라우트는 `requireUser`(`routes/delegate.ts`).
 - `POST /api/delegate/resolutions/:topicId/upload` — 본인 팀 의제에만, 파일은 `resolutions.document`로, 상태는 `review`로.
 - `resolutions.publishedAt`(또는 `visibility`) — 공개 API(`/api/public/site`)는 `approved` **이고** 공개된 것만 `document`를 내려준다. 지금은 approved면 바로 다운로드 링크가 뜬다 (`apps/web/src/app/resolutions/page.tsx`).
 - 13:00 일괄 공개: 관리자 "전체 공개" 버튼 하나 (스케줄러보다 단순·안전). 위원회별로도 가능하게.
@@ -196,10 +196,10 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 ## 7. 작업 규칙
 
 - **커밋 전 `pnpm typecheck`** 통과. 루트에서 전체 패키지 검사.
-- **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. API 부팅 시 자동 적용. zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
+- **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. 로컬은 부팅 시, 프로덕션은 `daemun-api` 빌드 시 적용된다 (프리뷰 배포는 건너뜀). zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
 - **새 CRUD 리소스**: `crudRoutes({ table, create, update, orderBy? })` (`lib/crud.ts`)에 테이블 + zod 스키마 넘기고 `admin.ts`에 `.route("/xxx", ...)` 한 줄. 손으로 라우트 짜지 말 것.
 - **배포 시 반드시**: Vercel `daemun-api`의 `ADMIN_URL`·`WEB_PUBLIC_URL`·`WEB_URL`, `daemun-web`/`daemun-admin`의 `API_URL`이 실제 origin과 일치해야 한다. 환경변수를 바꾸면 해당 프로젝트를 재배포해야 반영된다.
-- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 `vercel deploy --prod`로 api → web → admin 순서로 올린다. GitHub 시크릿 `VERCEL_TOKEN`(Vercel → Account Settings → Tokens, scope `junwon-9966`)이 없으면 워크플로우는 안내만 찍고 아무것도 하지 않는다. 프로덕션 API 빌드는 번들 전에 Neon에 마이그레이션을 적용한다(`apps/api/scripts/vercel-build.mjs`) — 그래서 스키마 변경 PR은 생성된 SQL을 꼭 커밋해야 한다. 롤백은 Vercel 대시보드에서 이전 배포를 Promote. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 수동 배포는 레포 루트에서 `vercel link --project <이름> --scope junwon-9966` 후 `vercel deploy --prod` (서브디렉터리에서 돌리면 그 디렉터리만 올라가 실패).
+- **main 머지 = 배포 — 단, 2026-09-11 현재는 꺼져 있다.** `.github/workflows/deploy.yml`이 `vercel deploy --prod`로 api → web → admin 순서로 올리는데, GitHub 시크릿 `VERCEL_TOKEN`(Vercel → Account Settings → Tokens, scope `junwon-9966`)이 없으면 안내만 찍고 green으로 끝난다. **토큰이 없는 지금은 머지해도 배포되지 않으니** 아래 수동 배포로 올린다. 대안은 각 Vercel 프로젝트 Settings → Git에서 이 저장소를 연결하는 것(계정에 GitHub Login Connection이 먼저 있어야 함) — 그러면 push마다 Vercel이 직접 배포하고 PR마다 프리뷰가 생기며, `deploy.yml`은 지워야 한다(둘 다 있으면 두 번 배포). 프로덕션 API 빌드는 번들 전에 Neon에 마이그레이션을 적용한다(`apps/api/scripts/vercel-build.mjs`) — 그래서 스키마 변경 PR은 생성된 SQL을 꼭 커밋해야 한다. 롤백은 Vercel 대시보드에서 이전 배포를 Promote. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 수동 배포는 레포 루트에서 `vercel link --project <이름> --scope junwon-9966` 후 `vercel deploy --prod` (서브디렉터리에서 돌리면 그 디렉터리만 올라가 실패).
 
 ---
 

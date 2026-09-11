@@ -39,8 +39,8 @@
  * - bootstrap() is not called. It applies migrations, seeds an empty database
  *   and creates the first admin — once-per-boot work that a serverless
  *   runtime would repeat on every cold start, concurrently across instances.
- *   Migrations run from the deploy workflow instead
- *   (`pnpm --filter @daemun/db migrate` against the production database).
+ *   Migrations run in the production build step instead
+ *   (scripts/vercel-build.mjs, run by vercel.json's buildCommand).
  *
  * - /health still answers (the rewrite forwards it too), but nothing here
  *   polls it — the Docker health check that used it does not exist on this

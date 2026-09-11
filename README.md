@@ -1,6 +1,6 @@
 # DAEMUN III — 인수인계 문서
 
-대원 모의유엔(DAEMUN III) 컨퍼런스 웹사이트 모노레포. 공개 사이트, 콘텐츠 API, 공유 DB 스키마가 한 저장소에 있고 VPS 한 대에 Docker Compose로 올린다.
+대원 모의유엔(DAEMUN III) 컨퍼런스 웹사이트 모노레포. 공개 사이트, 콘텐츠 API, 공유 DB 스키마가 한 저장소에 있고 Vercel(web·api·admin) + Neon(Postgres) + Vercel Blob(업로드)에 올라간다 (§9).
 
 이 문서는 **유지보수 담당자**와 **어드민 패널을 만들 사람**을 위한 것이다. 지금까지 내린 결정과 이유, 검증된 것, 아직 안 된 것을 전부 담았다. 코드 읽기 전에 이 문서를 끝까지 한 번 읽을 것.
 
@@ -10,9 +10,9 @@
 
 - 원래는 `web/` 하나짜리 Next.js 사이트였고 모든 콘텐츠가 `conference.ts`에 하드코딩돼 있었다.
 - 2026-09-02에 모노레포로 재편하고, 콘텐츠를 PostgreSQL로 옮기고, Hono API를 만들고, 사이트가 API에서 읽도록 바꿨다.
-- **어드민 패널 UI는 일부러 만들지 않았다.** API는 어드민이 필요한 모든 것을 이미 지원한다 (§7, §8).
+- 어드민 패널은 `apps/admin`에 있고 Vercel `daemun-admin`으로 운영 중이다. 남은 화면은 `handover.md` §5.
 - 로컬에서 Postgres + API + 사이트가 함께 돌아가고, 로그인 → 관리자 라우트 → 공개 페이로드까지 curl로 확인했다 (§11).
-- **이 작업은 아직 git에 커밋되지 않았다.** 마지막 커밋은 `869fb82 DAEMUN III conference website`(재편 이전). 인수받으면 먼저 `git status`로 상태를 보고 커밋할 것.
+- 이력은 §12, 작업 규칙은 `CLAUDE.md`.
 
 ---
 
@@ -22,10 +22,10 @@
 |---|---|
 | `apps/web` 공개 사이트 | 완성. 콘텐츠를 API에서 받아오도록 전환 완료. Announcements 페이지 추가됨 |
 | `apps/api` 콘텐츠 API | 완성. 인증, 콘텐츠 CRUD, 파일 업로드, 캐시 무효화 웹훅 |
-| `packages/db` 스키마·마이그레이션·시드 | 완성. 마이그레이션 1개 (`0000_thankful_ozymandias.sql`) |
+| `packages/db` 스키마·마이그레이션·시드 | 완성. 마이그레이션 7개 (`packages/db/drizzle/0000`–`0006`) |
 | `packages/shared` zod 스키마·타입·기본 콘텐츠 | 완성 |
 | 배포 | **Vercel + Neon + Blob 운영 중** (→ §9). 2026-09-11 VPS에서 이전 |
-| **어드민 패널 UI** | **없음. 다음 담당자가 만든다** (→ §8) |
+| `apps/admin` 어드민 패널 | 운영 중 (Vercel `daemun-admin`). 남은 화면은 `handover.md` §5 |
 
 콘텐츠 자체는 대부분 `TBA` 플레이스홀더다 (날짜, 장소, 의제, 사무국 직책). 실제 값은 어드민 패널이 생기면 거기서 입력한다. **사무국 역할 배정은 사진·이름만 실제이고 직책은 임시**라는 점을 유의. 누가 어떤 직책인지는 반드시 확인 후 수정.
 
@@ -48,7 +48,7 @@ docker-compose.dev.yml   로컬 개발용 postgres만
 .claude/launch.json      개발 서버 실행 설정 (Claude Code용)
 ```
 
-패키지 이름: `@daemun/web`, `@daemun/api`, `@daemun/db`, `@daemun/shared`. 워크스페이스 패키지는 빌드 없이 TS 소스를 그대로 export한다 (Next는 `transpilePackages`, API는 `tsx`로 실행).
+패키지 이름: `@daemun/web`, `@daemun/api`, `@daemun/db`, `@daemun/shared`. 워크스페이스 패키지는 빌드 없이 TS 소스를 그대로 export한다 (Next는 `transpilePackages`, API는 로컬에선 `tsx`, 프로덕션에선 esbuild 번들 — §9).
 
 `apps/web/AGENTS.md`는 `next dev`가 자동으로 만드는 파일이다. 지우지 말 것.
 
@@ -62,13 +62,13 @@ docker-compose.dev.yml   로컬 개발용 postgres만
 |---|---|
 | 모노레포 (pnpm workspaces) | web·api·admin이 같은 타입과 zod 스키마를 공유해야 함 |
 | **Hono + Drizzle + PostgreSQL** | TypeScript 네이티브, 가볍고, 보일러플레이트가 적음. NestJS·Supabase·Next 내장 API 라우트도 후보였으나 이걸로 결정 |
-| **better-auth 이메일+비밀번호** | 외부 의존 없음. 공개 가입은 막고 관리자가 계정 발급. `admin` 플러그인으로 유저 관리 API까지 제공. Google 로그인은 선택 안 함 |
+| **better-auth 이메일+비밀번호** | 외부 의존 없음. 참가자 셀프 가입은 `delegate` 역할로만 허용(이메일 인증 필수), 관리자는 관리자가 발급. `admin` 플러그인으로 유저 관리 API까지 제공. Google 로그인은 선택 안 함 |
 | **Vercel(web·api·admin) + Neon(Postgres) + Vercel Blob(업로드)** | 처음엔 VPS 한 대 + Docker Compose였으나 2026-09-11 이전. 전부 무료 티어, 관리할 서버 없음. API는 Hono 앱을 esbuild로 번들해 함수 하나로 올린다 (`apps/api/api/index.mjs`) |
 | DB id는 `text` (uuid 타입 아님) | 시드 데이터가 `ecosoc`, `kim-junwon` 같은 읽기 쉬운 id를 쓸 수 있고, `packages/shared`의 기본 콘텐츠를 web 폴백과 시드에 동시에 재사용 가능. 새 행은 `crypto.randomUUID()` |
 | web은 API 장애 시 `defaultSite`로 폴백 | 컨퍼런스 당일 API가 죽어도 사이트는 떠 있어야 함 |
 | API에 CORS 없음 | 프론트가 Next.js rewrites로 `/api/*`, `/uploads/*`를 API에 프록시 → 브라우저 입장에선 전부 same-origin. 쿠키 문제도 사라짐 |
 | 마이그레이션은 프로덕션 빌드 단계에서, 시드·첫 관리자는 로컬 부팅 시 | 서버리스엔 "부팅 한 번"이 없다. `apps/api/scripts/vercel-build.mjs`가 번들 전에 마이그레이션을 적용하고, `bootstrap()`은 로컬 `pnpm dev:api`에서만 돈다 |
-| API는 프로덕션에서도 `tsx`로 실행 | 빌드 단계 제거. 이 규모에선 성능 차이 무의미 |
+| API는 로컬은 `tsx`로 소스 직접 실행, 프로덕션은 esbuild 번들 하나(`dist/app.mjs`) | 서버리스에선 확장자 없는 TS import가 ESM으로 안 풀려 번들이 필요하다 (`apps/api/api/index.mjs` 주석). 빌드는 `scripts/vercel-build.mjs` |
 | 어드민 패널은 이번에 안 만듦 | 오너 요청. 기반과 API만 정리하고 UI는 다음 담당자에게 |
 
 ---
@@ -128,7 +128,7 @@ curl localhost:4000/api/public/site | jq   # 사이트가 받는 페이로드 �
 
 `people.section`에 따라 연결이 다르다: `department`면 `departmentId`, `chair`면 `committeeId`를 채운다. 공개 API가 이걸 `secretariat.departments[].members`, `secretariat.chairs[slug]`로 조립한다.
 
-스키마 변경 절차: `schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL을 `packages/db/drizzle/`에 커밋. API가 부팅할 때 적용한다. zod 스키마(`packages/shared/src/schemas.ts`)도 같이 맞출 것.
+스키마 변경 절차: `schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL을 `packages/db/drizzle/`에 커밋. 로컬은 API 부팅 시, 프로덕션은 `daemun-api` 빌드 단계(`vercel-build.mjs`)에서 적용된다. zod 스키마(`packages/shared/src/schemas.ts`)도 같이 맞출 것.
 
 ### DB에 없는 콘텐츠 (MDX로 관리)
 
@@ -145,7 +145,7 @@ curl localhost:4000/api/public/site | jq   # 사이트가 받는 페이로드 �
 
 ```
 GET   /health
-GET   /uploads/*                     업로드 파일 서빙
+GET   /uploads/*                     업로드 파일 서빙 (UPLOAD_DRIVER=local일 때만 — 프로덕션은 Blob 절대 URL이라 404)
 *     /api/auth/*                    better-auth
 GET   /api/public/site               공개 사이트용 전체 페이로드 (SiteData)
 *     /api/admin/*                   관리자 전용 (세션 + role=admin 필요)
@@ -167,7 +167,9 @@ GET   /api/public/site               공개 사이트용 전체 페이로드 (Si
 | `/api/admin/schedule/days` | |
 | `/api/admin/schedule/items` | |
 | `/api/admin/documents` | |
-| `POST /api/admin/uploads` | multipart, 필드명 `file` |
+| `POST /api/admin/uploads` | multipart, 필드명 `file` (로컬 드라이버 경로) |
+| `GET /api/admin/uploads/config` · `POST /api/admin/uploads/token` | 브라우저→Blob 직업로드 (프로덕션; 함수 바디 4.5MB 상한 우회, 25MB까지) |
+| `POST /api/admin/uploads/gc` | 어느 행도 참조하지 않는 업로드 객체 정리 |
 
 CRUD 테이블마다:
 
@@ -184,10 +186,10 @@ PUT    /reorder     { ids: string[] } → 배열 순서대로 sortOrder 재설�
 업로드 응답:
 
 ```json
-{ "url": "/uploads/<uuid>.pdf", "originalName": "x.pdf", "kind": "PDF", "bytes": 12345, "size": "12 KB" }
+{ "url": "https://<store>.public.blob.vercel-storage.com/<uuid>.pdf", "originalName": "x.pdf", "kind": "PDF", "bytes": 12345, "size": "12 KB" }
 ```
 
-허용 확장자: jpg, jpeg, png, webp, pdf, doc, docx. 기본 25MB (`MAX_UPLOAD_MB`). `url`을 그대로 `people.photo`, `topics.report`, `resolutions.document`, `documents.file`에 넣으면 된다. `size` 문자열은 `documents.size`용.
+허용 확장자: jpg, jpeg, png, webp, pdf, doc, docx. 기본 25MB (`MAX_UPLOAD_MB`; 프로덕션은 직업로드 토큰의 `maximumSizeInBytes`로 스토어가 강제). 로컬 드라이버의 `url`은 `/uploads/<uuid>.pdf`. `url`을 그대로 `people.photo`, `topics.report`, `resolutions.document`, `documents.file`에 넣으면 된다. `size` 문자열은 `documents.size`용.
 
 ### 유저 관리
 
@@ -204,7 +206,7 @@ POST /api/auth/admin/ban-user / unban-user
 POST /api/auth/admin/remove-user
 ```
 
-클라이언트에서는 `better-auth/react`의 `createAuthClient({ plugins: [adminClient()] })`를 쓰면 위 엔드포인트가 메서드로 나온다. 공개 회원가입(`/sign-up/email`)은 꺼져 있다.
+클라이언트에서는 `better-auth/react`의 `createAuthClient({ plugins: [adminClient()] })`를 쓰면 위 엔드포인트가 메서드로 나온다. 공개 회원가입(`/sign-up/email`)은 열려 있다 — role은 항상 `delegate`(입력 불가), 이메일 인증 후 로그인 가능. 관리자는 `admin/create-user` 또는 `set-role`로만.
 
 ### 캐시 무효화 흐름
 
@@ -222,7 +224,7 @@ POST /api/auth/admin/remove-user
 - **어드민 프론트는 `/api/*`와 `/uploads/*`를 API로 rewrite해야 한다.** 그래야 세션 쿠키가 어드민 도메인의 first-party 쿠키가 된다. Next.js면 `next.config.ts`의 `rewrites()`에서 `destination: \`${API_URL}/api/:path*\``.
 - API의 `ADMIN_URL` 환경변수 = 어드민 프론트의 공개 origin (예: `https://admin.daemun.org`). better-auth의 `baseURL`이자 `trustedOrigins`라서 **이게 틀리면 CSRF 검사에서 전부 막힌다.** 로컬 기본값은 `http://localhost:3001`.
 - 프로덕션의 `ADMIN_URL`은 Vercel `daemun-api`의 환경변수다 (`https://daemun-admin.vercel.app`). 도메인이 바뀌면 여기와 `WEB_PUBLIC_URL`·`WEB_URL`을 같이 바꾸고 api를 재배포.
-- 첫 관리자는 `ADMIN_EMAIL` / `ADMIN_PASSWORD`로 API 부팅 시 자동 생성된다 (user 테이블이 비어 있을 때만).
+- 첫 관리자는 **로컬 부팅 시에만** `ADMIN_EMAIL` / `ADMIN_PASSWORD`로 자동 생성된다 (user 테이블이 비어 있을 때). 프로덕션엔 부팅이 없으니 기존 관리자가 `admin/create-user`·`set-role`로 발급한다.
 - `requireAdmin` 미들웨어(`apps/api/src/middleware/auth.ts`)가 세션·밴·role을 검사한다. 어드민 프론트에서 라우트 보호는 쿠키 존재 여부만 낙관적으로 확인하고 (Next 16은 `proxy.ts`), 실제 권한은 API가 판단하게 두면 된다.
 
 curl로 직접 확인하는 법 (`/api/auth/*`는 Origin 헤더가 `ADMIN_URL`과 같아야 CSRF 검사를 통과한다. `/api/admin/*`는 쿠키만 있으면 된다):
@@ -260,7 +262,7 @@ curl -b cj.txt -H "Origin: http://localhost:3001" -X PATCH -H "Content-Type: app
 | 관리자 계정 | `auth/admin/*` |
 | 미리보기 | `admin/site` |
 
-권장 구성: `apps/admin`에 Next.js 16 앱 (web과 같은 Tailwind v4 스택), `@daemun/shared` 타입 사용, 데이터 fetch는 `@tanstack/react-query`. 배포 시 `docker-compose.yml`에 서비스 하나, `Caddyfile`에 도메인 하나 추가하고 `ADMIN_URL`을 그 도메인으로.
+권장 구성: `apps/admin`에 Next.js 16 앱 (web과 같은 Tailwind v4 스택), `@daemun/shared` 타입 사용, 데이터 fetch는 `@tanstack/react-query`. 배포는 Vercel 프로젝트 `daemun-admin`(§9); 도메인이 바뀌면 `daemun-api`의 `ADMIN_URL`을 그 도메인으로 (§7).
 
 기타 남은 일:
 
@@ -275,7 +277,7 @@ curl -b cj.txt -H "Origin: http://localhost:3001" -X PATCH -H "Content-Type: app
 
 프로젝트 3개가 한 저장소를 root directory만 다르게 본다: `daemun-web` → `apps/web`, `daemun-api` → `apps/api`, `daemun-admin` → `apps/admin`. 설정은 각 `apps/*/vercel.json`(리전 `sin1`, 프레임워크, 빌드 명령)과 Vercel 프로젝트 환경변수에 있다.
 
-- **자동 배포**: main 머지 → `.github/workflows/deploy.yml`이 `vercel deploy --prod` (api → web → admin). GitHub 시크릿 `VERCEL_TOKEN`이 있어야 한다. Vercel GitHub 연동(계정 → Login Connections → GitHub)을 붙이면 워크플로우 없이 push마다 배포되고 PR마다 프리뷰가 생긴다 — 그땐 워크플로우를 지운다.
+- **자동 배포 — 2026-09-11 현재 꺼져 있음**: `.github/workflows/deploy.yml`은 GitHub 시크릿 `VERCEL_TOKEN`이 있을 때만 main 머지에 `vercel deploy --prod`(api → web → admin)를 돌리고, 없으면 안내만 찍고 green으로 끝난다. 토큰을 넣거나(Vercel → Account Settings → Tokens), 각 Vercel 프로젝트 Settings → Git에서 이 저장소를 연결하면(계정 GitHub Login Connection 선행) push마다 Vercel이 직접 배포하고 PR마다 프리뷰가 생긴다 — 그땐 워크플로우를 지운다(둘 다 있으면 두 번 배포). 프리뷰 API 빌드는 마이그레이션을 건너뛰지만 프로덕션 DB를 공유한다.
 - **수동 배포**: 레포 루트에서 `vercel link --project <이름> --scope junwon-9966` 후 `vercel deploy --prod`. 서브디렉터리에서 돌리면 그 디렉터리만 올라가 실패한다.
 - **API 빌드** (`apps/api/scripts/vercel-build.mjs`): 프로덕션이면 `MIGRATE_DATABASE_URL`(direct 엔드포인트)로 마이그레이션 적용 → esbuild로 `dist/app.mjs` 번들 → `api/index.mjs`가 그걸 import. 프리뷰는 마이그레이션을 건너뛴다.
 - **환경변수** (`.env.example` 참고): api — `DATABASE_URL`(pooled) `MIGRATE_DATABASE_URL` `DB_POOL_MAX=5` `UPLOAD_DRIVER=blob` `BLOB_READ_WRITE_TOKEN`(스토어 연결 시 자동) `BETTER_AUTH_SECRET` `REVALIDATE_SECRET` `ADMIN_URL` `WEB_PUBLIC_URL` `WEB_URL` (+ SMTP). web — `API_URL` `REVALIDATE_SECRET`. admin — `API_URL`. 바꾸면 해당 프로젝트 재배포.

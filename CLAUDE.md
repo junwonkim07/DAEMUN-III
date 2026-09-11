@@ -9,7 +9,7 @@
 - **커밋 전 `pnpm typecheck`** (루트에서 전체 워크스페이스, 또는 `pnpm --filter <pkg> typecheck`로 범위 좁혀서).
 - `apps/web/AGENTS.md`는 `next dev`가 자동 생성하는 파일이다. 지우지 말 것.
 - **Next.js 16은 학습 데이터의 Next와 다르다.** `middleware.ts` → `src/proxy.ts`(함수명도 `proxy`), `revalidateTag(tag, opts)`는 2번째 인자 필수, 캐시 모델 변경. 작업 전 해당 앱의 `node_modules/next/dist/docs/`를 확인할 것.
-- **Git 워크플로**: `main`에 직접 커밋·push 금지. 기능 브랜치 → PR → CI(`.github/workflows/ci.yml`: typecheck·lint·build) 통과 → main 기준 rebase → **준원(저장소 오너) 컨펌** → merge. **main 머지는 곧 프로덕션 배포다** (`.github/workflows/deploy.yml` → Vercel 3개 프로젝트; `VERCEL_TOKEN` 시크릿 필요). CI 안 붙이고 임의로 머지하지 말 것.
+- **Git 워크플로**: `main`에 직접 커밋·push 금지. 기능 브랜치 → PR → CI(`.github/workflows/ci.yml`: typecheck·lint·build) 통과 → main 기준 rebase → **준원(저장소 오너) 컨펌** → merge. **main 머지는 곧 프로덕션 배포다** — GitHub 시크릿 `VERCEL_TOKEN`이 있을 때(`.github/workflows/deploy.yml` → Vercel 3개 프로젝트). 2026-09-11 현재 토큰이 없어 머지가 자동 배포되지 않으니 `handover.md` §7의 수동 배포로 올린다. CI 안 붙이고 임의로 머지하지 말 것.
   - 포크 기여자(쓰기 권한 없음)용 절차: 포크에 push → `gh pr create --repo junwonkim07/DAEMUN-III --head <계정>:<브랜치> --base main` → 첫 기여는 메인테이너가 CI "Approve and run" → `git fetch upstream && git rebase upstream/main` 후 force-push → CI green이면 "머지 준비됨"만 알린다 (머지는 오너가). 리모트 이름(`upstream`/`origin`), `gh` 실행 경로 같은 개인 환경은 이 파일이 아니라 각자 `.claude/settings.local.json`·로컬 메모에 둔다.
   - 스택 브랜치(안 머지된 브랜치 위에서 딴 브랜치): 아래 PR이 머지되기 전엔 위 PR을 열지 말 것. push만 해두고 대기.
   - **PR 단위 (2026-09-04~)**: 화면·조각 하나마다 올리고 머지 기다리지 말 것. 한 기능 영역(어드민 재설계, 챗봇 등)을 끝까지 구현한 뒤 통합 브랜치로 올려 머지 전에 리뷰받는다. 단 diff가 크면 **큰 PR 하나로 던지지 말고** 관심사별 2~3 PR로 나눠 한꺼번에 올리고 머지 순서를 명시한다 (이 레포는 squash merge라 PR 1개 = main 커밋 1개 = 추적 단위). 커밋은 논리 단위로. 리뷰 요청 전 CI 3종(typecheck·lint·build) green + 로컬에서 화면 클릭 확인(스크린샷 첨부). 리뷰 지적은 같은 브랜치에 fixup 커밋. 고립된 소규모 작업은 화면별 PR로 돌아가도 됨.
@@ -32,7 +32,7 @@ packages/
 ## 지금 상태 (자세한 건 handover.md)
 
 - `apps/web`, `apps/api`, `packages/*`: 완성.
-- `apps/admin`: 스캐폴딩 + **결의안 현황판**(`/dashboard/resolutions`) + **사무국**(`/dashboard/secretariat`, 사무총장·집행부·부서·부원) 완료. Vercel 프로젝트 `daemun-admin`으로 배포된다 (main 머지 시 자동, `handover.md` §0). `handover.md` §5 우선순위(로그인 ✅ → 결의안 현황판 ✅ → 사무국 ✅ → **회의정보** → 위원회·의제(의장 명단 편집 포함) → 일정·문서 → 나머지) 순서로 이어서 만들 것.
+- `apps/admin`: 스캐폴딩 + **결의안 현황판**(`/dashboard/resolutions`) + **사무국**(`/dashboard/secretariat`, 사무총장·집행부·부서·부원) 완료. Vercel 프로젝트 `daemun-admin`으로 배포된다 (절차는 `handover.md` §0·§7). `handover.md` §5 우선순위(로그인 ✅ → 결의안 현황판 ✅ → 사무국 ✅ → **회의정보** → 위원회·의제(의장 명단 편집 포함) → 일정·문서 → 나머지) 순서로 이어서 만들 것.
   - 패턴: 데이터는 `useSite()`(react-query, `GET /api/admin/site`), 변경은 `lib/api.ts`의 `adminFetch`/`uploadFile` + 리소스별 react-query 뮤테이션에서 site 캐시 무효화. 인증 화면은 `/dashboard/*` 아래 두면 `proxy.ts` + `DashboardShell`이 보호.
 - `handover.md` §6에 09-02 사무국 회의에서 나온 신규 요구사항(결의안 제출 시스템, 공지 CRUD)이 정리돼 있다. 특히 §6-1의 `defaultRole` 함정을 반드시 읽을 것 — 참가자 셀프 가입을 열 때 `defaultRole`을 `"admin"`에서 `"delegate"`로 바꾸지 않으면 가입자가 전부 관리자가 된다.
 
