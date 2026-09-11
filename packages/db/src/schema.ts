@@ -38,6 +38,11 @@ export const conference = pgTable("conference", {
   email: text("email").notNull().default("TBA"),
   instagram: text("instagram").notNull().default("TBA"),
   instagramUrl: text("instagram_url").notNull().default("#"),
+  // Second account — the club currently runs two personal accounts instead of
+  // one official handle. Optional: blank means "not set", unlike `instagram`
+  // which falls back to the TBA placeholder.
+  instagram2: text("instagram2").notNull().default(""),
+  instagramUrl2: text("instagram_url_2").notNull().default(""),
   address: text("address").notNull().default("TBA"),
   firstHeld: text("first_held").notNull().default(""),
   aboutLead: text("about_lead").notNull().default(""),
