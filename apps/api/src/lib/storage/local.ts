@@ -32,7 +32,12 @@ export const localDriver: StorageDriver = {
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       const stat = await fs.stat(path.join(env.uploadDir, entry.name));
-      out.push({ key: entry.name, size: stat.size, uploadedAt: stat.mtimeMs });
+      out.push({
+        key: entry.name,
+        url: `/uploads/${entry.name}`,
+        size: stat.size,
+        uploadedAt: stat.mtimeMs,
+      });
     }
     return out;
   },
