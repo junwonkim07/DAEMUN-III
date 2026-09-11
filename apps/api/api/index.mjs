@@ -30,9 +30,10 @@
  *   `"framework": null` in vercel.json keeps Vercel from also auto-building
  *   src/index.ts as a second function.
  *
- * - ../public/ is empty and exists only because the "Other" preset refuses to
- *   finish a deploy without a static output directory. Nothing is served
- *   from it.
+ * - vercel.json points outputDirectory at dist/public, an empty directory
+ *   the build creates, because the "Other" preset refuses to finish a deploy
+ *   without one. A real public/ in the repo was served ahead of the rewrite
+ *   (bypassing Hono and its security headers), so there is none.
  *
  * What deliberately does NOT happen here, compared with src/index.ts:
  *

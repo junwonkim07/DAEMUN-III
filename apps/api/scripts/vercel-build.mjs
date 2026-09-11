@@ -14,6 +14,7 @@
 // endpoint. Runtime traffic uses DATABASE_URL (pooled); DDL through a
 // transaction-mode pooler is not something to depend on.
 import { execSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
 
 function run(cmd) {
   console.log(`[vercel-build] ${cmd}`);
@@ -33,3 +34,9 @@ if (env === "production") {
 }
 
 run("pnpm bundle");
+
+// The "Other" preset refuses to finish a deploy without a static output
+// directory (vercel.json outputDirectory). Give it an empty one that only
+// exists after the build: a real public/ checked into the repo was served
+// ahead of the rewrite, bypassing Hono and its security headers.
+mkdirSync("dist/public", { recursive: true });
