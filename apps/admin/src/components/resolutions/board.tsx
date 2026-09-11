@@ -11,6 +11,7 @@ import type {
 import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { resolutionHooks, useUploadResolutionDoc } from "@/lib/resolutions";
+import { useTeams } from "@/lib/teams";
 import { InlineText } from "@/components/inline-edit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +20,9 @@ import { STATUS_META, StatusControl } from "./controls";
 const ROMAN = ["I", "II", "III", "IV", "V", "VI"];
 
 export function ResolutionBoard({ site }: { site: SiteData }) {
+  const { data: teams } = useTeams();
+  const teamNames = new Map((teams ?? []).map((t) => [t.id, t.name || "Untitled team"]));
+
   if (site.committees.length === 0) {
     return (
       <p className="text-sm text-muted">
@@ -33,6 +37,7 @@ export function ResolutionBoard({ site }: { site: SiteData }) {
           key={committee.id}
           committee={committee}
           resolutions={site.resolutions[committee.slug] ?? []}
+          teamNames={teamNames}
         />
       ))}
     </div>
@@ -42,9 +47,11 @@ export function ResolutionBoard({ site }: { site: SiteData }) {
 function CommitteeSection({
   committee,
   resolutions,
+  teamNames,
 }: {
   committee: CommitteeWithTopics;
   resolutions: Resolution[];
+  teamNames: Map<string, string>;
 }) {
   const byTopic = new Map<string, Resolution[]>();
   for (const r of resolutions) {
@@ -71,6 +78,7 @@ function CommitteeSection({
             committeeId={committee.id}
             topicId={topic.id}
             resolutions={byTopic.get(topic.id) ?? []}
+            teamNames={teamNames}
           />
         ))}
 
@@ -85,6 +93,7 @@ function CommitteeSection({
             committeeId={committee.id}
             topicId={topicId}
             resolutions={byTopic.get(topicId) ?? []}
+            teamNames={teamNames}
             allowAdd={false}
           />
         ))}
@@ -108,6 +117,7 @@ function TopicGroup({
   committeeId,
   topicId,
   resolutions,
+  teamNames,
   allowAdd = true,
 }: {
   numeral: string;
@@ -115,6 +125,7 @@ function TopicGroup({
   committeeId: string;
   topicId: string;
   resolutions: Resolution[];
+  teamNames: Map<string, string>;
   allowAdd?: boolean;
 }) {
   const create = resolutionHooks.useCreate();
@@ -157,7 +168,7 @@ function TopicGroup({
       ) : (
         <ul className="mt-2 space-y-2">
           {resolutions.map((r) => (
-            <ResolutionRow key={r.id} resolution={r} />
+            <ResolutionRow key={r.id} resolution={r} teamName={r.teamId ? teamNames.get(r.teamId) : undefined} />
           ))}
         </ul>
       )}
@@ -165,7 +176,13 @@ function TopicGroup({
   );
 }
 
-function ResolutionRow({ resolution }: { resolution: Resolution }) {
+function ResolutionRow({
+  resolution,
+  teamName,
+}: {
+  resolution: Resolution;
+  teamName: string | undefined;
+}) {
   const update = resolutionHooks.useUpdate();
   const remove = resolutionHooks.useRemove();
 
@@ -224,6 +241,12 @@ function ResolutionRow({ resolution }: { resolution: Resolution }) {
       <div className="mt-1 flex items-center gap-2 pl-1.5 text-[11px] text-faint">
         <span>{STATUS_META[resolution.status].label}</span>
         <span>·</span>
+        {teamName && (
+          <>
+            <span className="text-muted">Team: {teamName}</span>
+            <span>·</span>
+          </>
+        )}
         <span>Updated {new Date(resolution.updatedAt).toLocaleString("en-GB")}</span>
         {busy && <span className="text-muted">Saving…</span>}
         {err && (
