@@ -1,7 +1,12 @@
 /**
- * Serverless entrypoint. Vercel turns this file into one function that
- * receives every request under /api/*. src/index.ts stays the entrypoint for
- * a long-lived Node process (local dev, the VPS).
+ * Serverless entrypoint. Vercel turns this file into one function at /api,
+ * and the rewrite in vercel.json (`/(.*)` -> `/api`) sends every request to
+ * it with the original path intact, so Hono's own routing decides — the same
+ * shape as on the VPS. Filename-based routing was tried first and rejected:
+ * `[[...route]].mjs` (a Next.js convention) was mounted literally, and
+ * `[...route].mjs` matched a single path segment only, so /api/public/site
+ * never reached the function. src/index.ts stays the entrypoint for a
+ * long-lived Node process (local dev, the VPS).
  *
  * Why two lines of .mjs rather than importing the TypeScript app directly:
  *
@@ -25,6 +30,10 @@
  *   `"framework": null` in vercel.json keeps Vercel from also auto-building
  *   src/index.ts as a second function.
  *
+ * - ../public/ is empty and exists only because the "Other" preset refuses to
+ *   finish a deploy without a static output directory. Nothing is served
+ *   from it.
+ *
  * What deliberately does NOT happen here, compared with src/index.ts:
  *
  * - bootstrap() is not called. It applies migrations, seeds an empty database
@@ -33,10 +42,13 @@
  *   Migrations run from the deploy workflow instead
  *   (`pnpm --filter @daemun/db migrate` against the production database).
  *
- * - /health is not reachable: only /api/* routes to this function.
+ * - /health still answers (the rewrite forwards it too), but nothing here
+ *   polls it — the Docker health check that used it does not exist on this
+ *   host.
  *
- * - /uploads/* is not reachable either. This deployment uses object storage
- *   (UPLOAD_DRIVER=blob), where every persisted URL is absolute.
+ * - /uploads/* answers 404: this deployment uses object storage
+ *   (UPLOAD_DRIVER=blob), where every persisted URL is absolute, and app.ts
+ *   only mounts the static handler for the local driver.
  */
 import { app } from "../dist/app.mjs";
 

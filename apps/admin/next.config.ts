@@ -17,8 +17,11 @@ if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  outputFileTracingRoot: path.join(__dirname, "../.."),
+  // Docker-only (see apps/admin/Dockerfile): Vercel's builder does its own
+  // tracing and fails on standalone output in a workspace.
+  ...(process.env.VERCEL
+    ? {}
+    : { output: "standalone" as const, outputFileTracingRoot: path.join(__dirname, "../..") }),
   transpilePackages: ["@daemun/shared"],
   async rewrites() {
     return [
