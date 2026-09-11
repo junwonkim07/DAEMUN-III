@@ -14,7 +14,9 @@ const isCli =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isCli) {
-  const db = createDb();
+  // DDL wants the direct endpoint of a managed Postgres, while the app's
+  // DATABASE_URL points at the pooler. Unset -> same URL as the app.
+  const db = createDb(process.env.MIGRATE_DATABASE_URL);
   runMigrations(db)
     .then(() => {
       console.log("✔ migrations applied");
