@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "tsx watch --clear-screen=false --env-file-if-exists=.env src/index.ts",
     "start": "tsx --env-file-if-exists=.env src/index.ts",
+    "bundle": "node scripts/bundle.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,6 +16,7 @@
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
     "@vercel/blob": "^2.8.0",
+    "@vercel/functions": "^3.9.7",
     "better-auth": "^1.7.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.5",
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^22",
     "@types/nodemailer": "^8.0.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.13",
     "typescript": "^5"
   }

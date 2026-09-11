@@ -4,6 +4,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { auth } from "./auth";
 import { env } from "./env";
+import { storage } from "./lib/storage";
 import { adminRoutes } from "./routes/admin";
 import { delegateRoutes } from "./routes/delegate";
 import { publicRoutes } from "./routes/public";
@@ -28,12 +29,19 @@ export const app = new Hono()
 
   .get("/health", (c) => c.json({ ok: true, uptime: process.uptime() }))
 
+  // Only the local driver keeps files on this server's disk. With object
+  // storage every persisted URL is absolute, so nothing legitimately asks
+  // this server for /uploads/* — a request here is a row not yet migrated,
+  // and 404 is the honest answer rather than reading a directory that
+  // does not exist.
   .use(
     "/uploads/*",
-    serveStatic({
-      root: env.uploadDir,
-      rewriteRequestPath: (p) => p.replace(/^\/uploads/, ""),
-    }),
+    storage.name === "local"
+      ? serveStatic({
+          root: env.uploadDir,
+          rewriteRequestPath: (p) => p.replace(/^\/uploads/, ""),
+        })
+      : (_c, next) => next(),
   )
 
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))

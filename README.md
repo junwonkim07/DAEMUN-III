@@ -211,7 +211,7 @@ POST /api/auth/admin/remove-user
 ### 캐시 무효화 흐름
 
 1. `web`은 `GET /api/public/site`를 `next: { revalidate: 60, tags: ["site"] }`로 fetch (`apps/web/src/lib/site.ts`)
-2. 관리자 라우트에서 뭔가 바뀌면 API가 `POST {WEB_URL}/api/revalidate` 호출 (300ms 디바운스, fire-and-forget, `lib/revalidate.ts`)
+2. 관리자 라우트에서 뭔가 바뀌면 API가 `POST {WEB_URL}/api/revalidate` 호출 (편집마다 1회, `waitUntil`로 응답 뒤에도 완료 보장, fire-and-forget, `lib/revalidate.ts`; 호스팅된 API에서는 `WEB_URL`이 web의 공개 origin이어야 함)
 3. web의 라우트 핸들러가 `x-revalidate-secret` 검사 후 `revalidateTag("site", { expire: 0 })` → 다음 방문자부터 새 데이터
 
 `REVALIDATE_SECRET`이 비어 있으면 웹훅을 안 보내고 60초 주기 갱신만 된다.

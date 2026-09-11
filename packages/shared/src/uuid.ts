@@ -6,7 +6,9 @@
  * `undefined` and calling it throws — which is how the presence heartbeat once
  * took the whole page down (React unmounts the root on an uncaught effect
  * error). `crypto.getRandomValues()` is available everywhere, so fall back to
- * it. Both frontends need this, so it lives here rather than in either one.
+ * it. The public site once had its own copy for the presence heartbeat; that
+ * feature is gone, so this — used by the admin panel to mint upload keys —
+ * is the only one.
  */
 
 /**
@@ -29,7 +31,7 @@ export function uuid(): string {
     // Ancient browser — not cryptographically strong. Every browser that can
     // run the admin panel has getRandomValues, so upload keys (whose
     // unguessability is the only access control on a public store) never
-    // take this path; it exists for the anonymous presence id only.
+    // take this path in practice; it only keeps the function total.
     for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
   bytes[6] = (bytes[6]! & 0x0f) | 0x40; // version 4

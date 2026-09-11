@@ -8,6 +8,12 @@ import type { NextConfig } from "next";
 // 주의: rewrites()는 `next build` 시점에 한 번 평가되어 routes-manifest에
 // 고정된다. 즉 API_URL은 **빌드 시** 환경변수다 — Docker에서는 build ARG로
 // 넘겨야 하고, 런타임 environment로는 바꿀 수 없다 (apps/admin/Dockerfile 참고).
+// 프로덕션 빌드에서 빠뜨리면 rewrite가 localhost를 가리킨 채 배포되고 로그인이
+// 전부 403이 난다 (handover.md §3). 그때 가서 알기보다 빌드에서 막는다.
+// Docker 이미지는 build ARG로, 호스팅 빌드는 프로젝트 환경변수로 넘긴다.
+if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
+  throw new Error("API_URL must be set for a production build (it is baked into rewrites)");
+}
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {

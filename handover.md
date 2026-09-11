@@ -106,7 +106,7 @@ base: `/api/admin` (관리자 세션 필요). 응답 타입은 전부 `@daemun/s
 | --------- | --------------------------------------- | ---------------------------------------------------------------- |
 | 회의 정보 | `GET/PATCH /conference`               | 싱글톤 (id`"main"`)                                            |
 | 미리보기  | `GET /site`                           | 공개 사이트가 받는`SiteData` 그대로                            |
-| 개요 통계 | `GET /stats`                          | 접속 인원(하트비트)·결의안 상태별 수·계정 수·서버 CPU/RAM/Swap/Disk |
+| 개요 통계 | `GET /stats`                          | 결의안 상태별 수·계정 수 (접속 인원 하트비트와 서버 CPU/RAM/Disk는 서버리스 이관 때 제거) |
 | 위원회    | `/committees`                         |                                                                  |
 | 의제      | `/topics`                             | `report` = chair report PDF 경로                               |
 | 부서      | `/departments`                        |                                                                  |

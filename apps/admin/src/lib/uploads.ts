@@ -1,18 +1,19 @@
 // apps/admin/src/lib/uploads.ts
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { adminFetch } from "./api";
-import { STATS_KEY } from "./stats";
 
 export type UploadsGcReport = { scanned: number; deleted: string[]; freedBytes: number };
 
-/** Deletes uploaded files no record references anymore (replaced/removed
- *  images, reports, documents, photos). Refetches disk stats afterward. */
+/**
+ * Deletes uploaded files no record references anymore (replaced/removed
+ * images, reports, documents, photos). The mutation's own result — what was
+ * deleted and how many bytes it freed — is all the Overview shows; there is
+ * no separate storage figure to refresh now that the host-disk gauges are gone.
+ */
 export function useCleanupUploads() {
-  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => adminFetch<UploadsGcReport>("/uploads/gc", { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: STATS_KEY }),
   });
 }

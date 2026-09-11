@@ -2,6 +2,14 @@ import path from "node:path";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 
+// Baked into the rewrites below at build time. A production build that
+// forgot to set it would ship rewrites pointing at localhost and fail only
+// once a visitor tried to sign in — make it fail the build instead. The
+// Docker image passes it as a build ARG; a hosted build sets it in the
+// project's environment.
+if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
+  throw new Error("API_URL must be set for a production build (it is baked into rewrites)");
+}
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
@@ -11,6 +19,13 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../.."),
   // Workspace packages are shipped as TypeScript source
   transpilePackages: ["@daemun/shared"],
+  // Admin-uploaded photos (secretariat, committee images) render through
+  // next/image. With the local storage driver they are same-origin /uploads
+  // paths; with object storage they are absolute URLs on the store's host,
+  // which next/image refuses unless the host is allow-listed here.
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+  },
   // Files uploaded through the admin API live on the API server; proxy them
   // so the public site can reference them as same-origin paths.
   //
@@ -22,7 +37,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/uploads/:path*", destination: `${API_URL}/uploads/:path*` },
       { source: "/api/auth/:path*", destination: `${API_URL}/api/auth/:path*` },
-      { source: "/api/presence", destination: `${API_URL}/api/public/presence` },
       // 안내 챗봇 — 브라우저에서 same-origin으로 호출, API의 공개 엔드포인트로 전달
       { source: "/api/chat", destination: `${API_URL}/api/public/chat` },
     ];
