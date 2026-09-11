@@ -209,13 +209,20 @@ export const scheduleItemSchema = z.object({
   dayId: str,
   time: str,
   event: str,
+  urgent: z.boolean(),
   sortOrder: z.number().int(),
 });
 export type ScheduleItem = z.infer<typeof scheduleItemSchema>;
-const scheduleItemFields = { dayId: str, time: str, event: str.min(1), sortOrder };
+const scheduleItemFields = {
+  dayId: str,
+  time: str,
+  event: str.min(1),
+  urgent: z.boolean(),
+  sortOrder,
+};
 export const scheduleItemCreateSchema = z
   .object(scheduleItemFields)
-  .extend({ time: str.default("TBA") });
+  .extend({ time: str.default("TBA"), urgent: z.boolean().default(false) });
 export const scheduleItemUpdateSchema = z.object(scheduleItemFields).partial();
 
 export const scheduleDaySchema = z.object({

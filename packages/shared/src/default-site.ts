@@ -328,9 +328,9 @@ export const defaultSite: SiteData = {
       date: "TBA",
       sortOrder: 0,
       items: [
-        { id: "day-1-1", dayId: "day-1", time: "TBA", event: "Registration & Opening Ceremony", sortOrder: 0 },
-        { id: "day-1-2", dayId: "day-1", time: "TBA", event: "Committee Session I", sortOrder: 1 },
-        { id: "day-1-3", dayId: "day-1", time: "TBA", event: "Committee Session II", sortOrder: 2 },
+        { id: "day-1-1", dayId: "day-1", time: "TBA", event: "Registration & Opening Ceremony", urgent: false, sortOrder: 0 },
+        { id: "day-1-2", dayId: "day-1", time: "TBA", event: "Committee Session I", urgent: false, sortOrder: 1 },
+        { id: "day-1-3", dayId: "day-1", time: "TBA", event: "Committee Session II", urgent: false, sortOrder: 2 },
       ],
     },
     {
@@ -339,9 +339,9 @@ export const defaultSite: SiteData = {
       date: "TBA",
       sortOrder: 1,
       items: [
-        { id: "day-2-1", dayId: "day-2", time: "TBA", event: "Committee Session III", sortOrder: 0 },
-        { id: "day-2-2", dayId: "day-2", time: "TBA", event: "Resolution Debate & Voting", sortOrder: 1 },
-        { id: "day-2-3", dayId: "day-2", time: "TBA", event: "Closing Ceremony & Awards", sortOrder: 2 },
+        { id: "day-2-1", dayId: "day-2", time: "TBA", event: "Committee Session III", urgent: false, sortOrder: 0 },
+        { id: "day-2-2", dayId: "day-2", time: "TBA", event: "Resolution Debate & Voting", urgent: true, sortOrder: 1 },
+        { id: "day-2-3", dayId: "day-2", time: "TBA", event: "Closing Ceremony & Awards", urgent: false, sortOrder: 2 },
       ],
     },
   ],

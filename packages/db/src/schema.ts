@@ -222,6 +222,7 @@ export const scheduleItems = pgTable("schedule_items", {
     .references(() => scheduleDays.id, { onDelete: "cascade" }),
   time: text("time").notNull().default("TBA"),
   event: text("event").notNull(),
+  urgent: boolean("urgent").notNull().default(false),
   sortOrder: sortOrder(),
   ...timestamps,
 });

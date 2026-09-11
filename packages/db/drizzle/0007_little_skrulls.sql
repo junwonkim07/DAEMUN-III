@@ -1,0 +1,1 @@
+ALTER TABLE "schedule_items" ADD COLUMN "urgent" boolean DEFAULT false NOT NULL;
