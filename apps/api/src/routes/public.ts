@@ -29,7 +29,7 @@ import {
   ChatUpstreamError,
   generateReply,
 } from "../lib/chat";
-import { countRelevantFaqs, renderSiteContext } from "../lib/chat-context";
+import { countRelevantFaqs, renderSiteContext, type ChatFaq } from "../lib/chat-context";
 import { logChat } from "../lib/chat-log";
 import { clientIp } from "../lib/client-ip";
 import { env } from "../env";
@@ -44,6 +44,45 @@ type BuildOptions = {
    */
   publicView?: boolean;
 };
+
+/**
+ * 챗봇 <context>는 요청마다 사이트 전체를 다시 조회·렌더링하면 대화 한 턴에
+ * DB 쿼리가 9개씩 나간다. 내용은 초 단위로 바뀌지 않으니 인스턴스 안에서 잠깐
+ * 재사용한다. (서버리스라 인스턴스마다 따로, 그리고 TTL 뒤에는 관리자 수정이
+ * 그대로 반영된다.)
+ */
+const CHAT_CONTEXT_TTL_MS = 20_000;
+type ChatContact = { email: string; instagram: string; instagramUrl: string };
+type ChatContext = { at: number; context: string; faqs: ChatFaq[]; contact: ChatContact };
+let chatContextCache: ChatContext | null = null;
+
+async function loadChatContext(): Promise<ChatContext> {
+  const now = Date.now();
+  if (chatContextCache && now - chatContextCache.at < CHAT_CONTEXT_TTL_MS) {
+    return chatContextCache;
+  }
+  const [site, faqRows] = await Promise.all([
+    buildSiteData({ publicView: true }),
+    db
+      .select({ question: faqs.question, answer: faqs.answer, category: faqs.category })
+      .from(faqs)
+      .where(eq(faqs.published, true))
+      .orderBy(asc(faqs.sortOrder), asc(faqs.createdAt)),
+  ]);
+  const conf = site.conference;
+  const contact = {
+    email: conf.email && conf.email !== "TBA" ? conf.email : "운영진 이메일",
+    instagram: conf.instagram && conf.instagram !== "TBA" ? conf.instagram : "공식 인스타그램",
+    instagramUrl: conf.instagramUrl || "#",
+  };
+  chatContextCache = {
+    at: now,
+    context: renderSiteContext(site, faqRows, env.webPublicUrl),
+    faqs: faqRows,
+    contact,
+  };
+  return chatContextCache;
+}
 
 /** Assemble the single payload the public site renders from. */
 export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> {
@@ -203,30 +242,13 @@ export const publicRoutes = new Hono()
       }
       const lastUser = messages[messages.length - 1]!.content;
 
-      const [site, faqRows] = await Promise.all([
-        buildSiteData({ publicView: true }),
-        db
-          .select({ question: faqs.question, answer: faqs.answer, category: faqs.category })
-          .from(faqs)
-          .where(eq(faqs.published, true))
-          .orderBy(asc(faqs.sortOrder)),
-      ]);
+      const { context, faqs: faqRows, contact } = await loadChatContext();
       // chat_logs.faqHits — 이 질문과 겹치는 FAQ 수 (컨텍스트에는 FAQ 전부가
-      // 들어가므로 답변과는 무관). 어드민 Chat logs가 0인 것을 "FAQ로 만들
-      // 후보"로 고르는 데 쓴다 — 옛 검색 기반 의미를 그대로 유지.
+      // 들어가므로 답변과는 무관). 어드민 Chat logs가 0인 것을 "겹치는 FAQ가
+      // 없는 질문"으로 표시하는 데 쓴다 — 옛 검색 기반 의미를 그대로 유지.
       const faqHits = countRelevantFaqs(lastUser, faqRows);
 
-      const conf = site.conference;
-      const contact = {
-        email: conf.email && conf.email !== "TBA" ? conf.email : "운영진 이메일",
-        instagram: conf.instagram || "@daemun_official",
-        instagramUrl: conf.instagramUrl || "#",
-      };
-
-      const systemPrompt = buildSystemPrompt(
-        renderSiteContext(site, faqRows, env.webPublicUrl),
-        contact,
-      );
+      const systemPrompt = buildSystemPrompt(context, contact);
 
       try {
         const reply = await generateReply(messages, systemPrompt);

@@ -25,9 +25,10 @@ export default function ChatLogsPage() {
       title="Chat logs"
       subtitle={
         <>
-          Visitor questions and the bot&apos;s replies. Questions marked <b>no source</b> are
-          the ones to turn into FAQs — the bot answered them without anything to go on. Logs
-          older than 90 days are deleted automatically.
+          Visitor questions and the bot&apos;s replies. The bot always sees the whole public
+          site; <b>no FAQ</b> marks questions that matched none of the secretariat-written FAQs
+          — worth a look if the answer was thin. Logs older than 90 days are deleted
+          automatically.
         </>
       }
       onRefresh={() => refetch()}
@@ -88,7 +89,7 @@ export default function ChatLogsPage() {
                   <td className="whitespace-nowrap px-3 py-2">
                     {log.faqHits === 0 ? (
                       <span className="rounded bg-gold-soft/20 px-1.5 py-0.5 text-xs text-[#8a6a2c]">
-                        No source
+                        No FAQ
                       </span>
                     ) : (
                       <span className="text-xs text-faint">FAQ {log.faqHits}</span>

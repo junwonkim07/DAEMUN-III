@@ -28,10 +28,14 @@ export const env = {
   webUrl: process.env.WEB_URL ?? "http://localhost:3000",
   /**
    * Public origin of the delegate-facing site as seen by browsers. Used for
-   * trustedOrigins (the site proxies /api/auth to us) and for the links in
-   * verification / password-reset emails.
+   * trustedOrigins (the site proxies /api/auth to us), for the links in
+   * verification / password-reset emails, and for every page link the
+   * chatbot hands to visitors — hence required in production (a silent
+   * localhost fallback would put http://localhost:3000/... in chat replies).
    */
-  webPublicUrl: process.env.WEB_PUBLIC_URL ?? "http://localhost:3000",
+  webPublicUrl: isProd
+    ? required("WEB_PUBLIC_URL")
+    : (process.env.WEB_PUBLIC_URL ?? "http://localhost:3000"),
 
   authSecret: required(
     "BETTER_AUTH_SECRET",
