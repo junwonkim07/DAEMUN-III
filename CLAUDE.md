@@ -50,4 +50,7 @@ pnpm dev:admin    # :3001
 
 ```
 API_URL=http://localhost:4000
+WEB_URL=http://localhost:3000
 ```
+
+`WEB_URL`은 시드 데이터의 정적 이미지(`/profiles/*`, `/committees/*`, `/docs/*` — 업로드 파이프라인 이전부터 `apps/web/public`에 있던 파일)를 어드민 화면에서도 보이게 프록시하는 데 쓴다. 프로덕션 배포에도 설정할 것 — 안 하면 해당 사진들이 어드민에서만 깨져 보인다(공개 사이트는 정상). `API_URL`처럼 build-time에 고정되는 값(`next.config.ts` 참고).
