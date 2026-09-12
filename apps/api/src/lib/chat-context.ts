@@ -14,6 +14,27 @@ import type { Person, SiteData } from "@daemun/shared";
 
 export type ChatFaq = { question: string; answer: string; category: string };
 
+/**
+ * 질문과 겹치는 FAQ 수 — chat_logs.faqHits에 남긴다. 컨텍스트에는 FAQ 전부가
+ * 들어가므로 답변에는 영향이 없고, 어드민 Chat logs가 "근거 FAQ 없음"(0)을
+ * 골라 FAQ로 만들 후보를 찾는 데만 쓴다. 옛 faq-search와 같은 기준:
+ * 2글자 이상 토큰이 질문·답변·분류 어딘가에 부분일치하면 1건.
+ */
+export function countRelevantFaqs(query: string, faqs: ChatFaq[]): number {
+  const seen = new Set<string>();
+  for (const raw of query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/)) {
+    if (raw.length >= 2) seen.add(raw);
+  }
+  const terms = [...seen].slice(0, 12);
+  if (terms.length === 0) return 0;
+  let n = 0;
+  for (const f of faqs) {
+    const hay = `${f.question} ${f.answer} ${f.category}`.toLowerCase();
+    if (terms.some((t) => hay.includes(t))) n++;
+  }
+  return n;
+}
+
 const PAGES = [
   ["홈", "/"],
   ["소개", "/about"],

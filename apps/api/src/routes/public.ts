@@ -29,7 +29,7 @@ import {
   ChatUpstreamError,
   generateReply,
 } from "../lib/chat";
-import { renderSiteContext } from "../lib/chat-context";
+import { countRelevantFaqs, renderSiteContext } from "../lib/chat-context";
 import { logChat } from "../lib/chat-log";
 import { clientIp } from "../lib/client-ip";
 import { env } from "../env";
@@ -211,9 +211,10 @@ export const publicRoutes = new Hono()
           .where(eq(faqs.published, true))
           .orderBy(asc(faqs.sortOrder)),
       ]);
-      // chat_logs.faqHits — 컨텍스트에 들어간 FAQ 수. 사이트 데이터는 항상
-      // 들어가므로 0이어도 "근거 없음"이 아니라 "운영진 FAQ가 아직 없음"이다.
-      const hits = faqRows;
+      // chat_logs.faqHits — 이 질문과 겹치는 FAQ 수 (컨텍스트에는 FAQ 전부가
+      // 들어가므로 답변과는 무관). 어드민 Chat logs가 0인 것을 "FAQ로 만들
+      // 후보"로 고르는 데 쓴다 — 옛 검색 기반 의미를 그대로 유지.
+      const faqHits = countRelevantFaqs(lastUser, faqRows);
 
       const conf = site.conference;
       const contact = {
@@ -229,19 +230,19 @@ export const publicRoutes = new Hono()
 
       try {
         const reply = await generateReply(messages, systemPrompt);
-        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits: hits.length });
+        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits });
         return c.json({ reply });
       } catch (err) {
         if (err instanceof ChatUnavailableError) {
           const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
-          logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits: hits.length });
+          logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits });
           return c.json({ reply }, 503);
         }
         if (err instanceof ChatBlockedError) {
           console.warn("[chat] blocked:", err.message);
           const reply =
             "그 질문에는 답변을 드리기 어려워요. 동아리 소개나 신청 절차, 일정 같은 걸 물어봐 주세요.";
-          logChat({ question: lastUser, answer: reply, outcome: "blocked", faqHits: hits.length });
+          logChat({ question: lastUser, answer: reply, outcome: "blocked", faqHits });
           // 서버 잘못이 아니라 모델이 거절한 것 — 위젯이 오류로 처리하지 않게 200.
           return c.json({ reply }, 200);
         }
@@ -251,7 +252,7 @@ export const publicRoutes = new Hono()
             question: lastUser,
             answer: CHAT_FALLBACK,
             outcome: "error",
-            faqHits: hits.length,
+            faqHits,
           });
           return c.json({ reply: CHAT_FALLBACK }, 502);
         }
