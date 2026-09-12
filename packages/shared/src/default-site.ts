@@ -277,15 +277,30 @@ const chairs: Record<string, Person[]> = {
   ],
 };
 
-const tbaTopics = (committeeId: string) =>
-  [0, 1, 2, 3].map((i) => ({
+/** Four topics per committee; chair reports live in apps/web/public/reports. */
+const topics = (committeeId: string, titles: string[]) =>
+  titles.map((title, i) => ({
     id: `${committeeId}-topic-${i + 1}`,
     committeeId,
-    title: "TBA",
+    title,
     summary: "",
-    report: null,
+    report: `/reports/${committeeId}-${i + 1}.pdf`,
     sortOrder: i,
   }));
+
+const ecosocTopics = topics("ecosoc", [
+  "Addressing the Impact of Artificial Intelligence and Automation on Labor Market Inequalities",
+  "Measures to Strengthen Supply Chain Resilience and Sustainable Trade in Developing Economies",
+  "Strengthening Economic Resilience Amid Demographic Decline in East Asia",
+  "Bridging Gaps in Climate Finance for Climate Adaptation and Resilience",
+]);
+
+const unoosaTopics = topics("unoosa", [
+  "Regulating the Commercial Extraction for Sustainable Use of Space Resources",
+  "Measures to Prevent Arms Race in Outer Space Technology Amid Growing Geopolitical Tensions",
+  "Measures to Strengthen International Cooperation on Space Debris and Mega-Constellation Governance",
+  "Measures to Promote Equitable Access to Space Technology and Infrastructure in Developing Countries",
+]);
 
 export const defaultSite: SiteData = {
   conference: {
@@ -326,7 +341,7 @@ export const defaultSite: SiteData = {
       sourceLabel: "ecosoc.un.org/en/about-us",
       sourceUrl: "https://ecosoc.un.org/en/about-us",
       sortOrder: 0,
-      topics: tbaTopics("ecosoc"),
+      topics: ecosocTopics,
     },
     {
       id: "unoosa",
@@ -339,7 +354,7 @@ export const defaultSite: SiteData = {
       sourceLabel: "unoosa.org/oosa/en/aboutus",
       sourceUrl: "https://www.unoosa.org/oosa/en/aboutus/index.html",
       sortOrder: 1,
-      topics: tbaTopics("unoosa"),
+      topics: unoosaTopics,
     },
   ],
 
@@ -386,8 +401,17 @@ export const defaultSite: SiteData = {
       blurb: "The full ROP as used at DAEMUN III",
       file: "/docs/daemun-iii-rop.docx",
       kind: "DOC",
-      size: "148 KB",
+      size: "149 KB",
       sortOrder: 1,
+    },
+    {
+      id: "points-and-motions",
+      title: "Points and Motions for Delegates",
+      blurb: "Every point and motion you can raise in committee, and when to use it",
+      file: "/docs/daemun-iii-points-and-motions.docx",
+      kind: "DOC",
+      size: "146 KB",
+      sortOrder: 2,
     },
     {
       id: "resolution-template",
@@ -396,7 +420,7 @@ export const defaultSite: SiteData = {
       file: "/docs/daemun-iii-resolution-template.docx",
       kind: "DOC",
       size: "150 KB",
-      sortOrder: 2,
+      sortOrder: 3,
     },
     {
       id: "resolution-example",
@@ -405,7 +429,7 @@ export const defaultSite: SiteData = {
       file: "/docs/daemun-iii-resolution-example.docx",
       kind: "DOC",
       size: "2.8 MB",
-      sortOrder: 3,
+      sortOrder: 4,
     },
     {
       id: "resolution-example-2",
@@ -414,7 +438,7 @@ export const defaultSite: SiteData = {
       file: "/docs/daemun-iii-resolution-example-2.docx",
       kind: "DOC",
       size: "3.4 MB",
-      sortOrder: 4,
+      sortOrder: 5,
     },
     {
       id: "speech-template",
@@ -423,7 +447,16 @@ export const defaultSite: SiteData = {
       file: "/docs/daemun-iii-speech-template.docx",
       kind: "DOC",
       size: "142 KB",
-      sortOrder: 5,
+      sortOrder: 6,
+    },
+    {
+      id: "emergency-speech-outlines",
+      title: "Emergency Speech Outlines",
+      blurb: "Ready-made outlines for when you are called to speak with no time to prepare",
+      file: "/docs/daemun-iii-emergency-speech-outlines.docx",
+      kind: "DOC",
+      size: "143 KB",
+      sortOrder: 7,
     },
   ],
 
