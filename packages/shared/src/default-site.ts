@@ -124,6 +124,18 @@ const departments: SiteData["secretariat"]["departments"] = [
           "I look forward to seeing you at DAEMUN III. Thank you!",
         ),
       }),
+      p("kim-minji", "Minji Kim", "Deputy Head of Media", "department", {
+        photo: "/profiles/kim-minji.jpg",
+        departmentId: "media",
+        sortOrder: 2,
+        greeting: g(
+          "Hello, delegates and distinguished guests!",
+          "My name is Minji Kim, and I am a senior at Qingdao Daewon School. It is my great honor to serve as a Deputy Head of the Media Department.",
+          "Throughout the conference, I will be responsible for documenting the memorable moments and atmosphere of the conference through photography and videography. I will also contribute to producing videos for the Opening and Closing Ceremonies, including interviews with the Advisor, Secretary-General, Deputy Secretary-General, and department heads.",
+          "Through our work, I hope to capture the dedication, enthusiasm, and spirit of every participant and preserve the memories that make this conference truly meaningful. I also hope that our work will help everyone look back on this conference and remember the experiences and connections they made.",
+          "I look forward to seeing you all at the conference!",
+        ),
+      }),
     ],
   },
   {
@@ -179,6 +191,16 @@ const departments: SiteData["secretariat"]["departments"] = [
         greeting: g(
           "Conference schedule coordination and venue setup, and the point of contact for delegates who need directions, materials, or assistance during DAEMUN III.",
         ),
+      }),
+      p("kwon-jaehoo", "Jaehoo Kwon", "UNOOSA Admin", "department", {
+        photo: "/profiles/kwon-jaehoo.jpg",
+        departmentId: "administration",
+        sortOrder: 3,
+      }),
+      p("kim-yeongchan", "Yeongchan Kim", "ECOSOC Admin", "department", {
+        photo: "/profiles/kim-yeongchan.jpg",
+        departmentId: "administration",
+        sortOrder: 4,
       }),
     ],
   },
