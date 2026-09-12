@@ -6,19 +6,18 @@ import type { NextConfig } from "next";
 // (handover.md §3 — 이거 없으면 로그인 자체가 CSRF/쿠키 문제로 막힌다)
 //
 // 주의: rewrites()는 `next build` 시점에 한 번 평가되어 routes-manifest에
-// 고정된다. 즉 API_URL은 **빌드 시** 환경변수다 — Docker에서는 build ARG로
-// 넘겨야 하고, 런타임 environment로는 바꿀 수 없다 (apps/admin/Dockerfile 참고).
+// 고정된다. 즉 API_URL은 **빌드 시** 환경변수다 — Vercel 프로젝트(daemun-admin)
+// 환경변수로 넣어야 하고, 런타임 environment로는 바꿀 수 없다.
 // 프로덕션 빌드에서 빠뜨리면 rewrite가 localhost를 가리킨 채 배포되고 로그인이
 // 전부 403이 난다 (handover.md §3). 그때 가서 알기보다 빌드에서 막는다.
-// Docker 이미지는 build ARG로, 호스팅 빌드는 프로젝트 환경변수로 넘긴다.
 if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
   throw new Error("API_URL must be set for a production build (it is baked into rewrites)");
 }
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
-  // Docker-only (see apps/admin/Dockerfile): Vercel's builder does its own
-  // tracing and fails on standalone output in a workspace.
+  // 자체 호스팅(장수 `node server.js`) 전용. Vercel에선 건너뛴다 — 그쪽 빌더가
+  // 자체 트레이싱을 하는데 워크스페이스의 standalone 출력에서 실패한다.
   ...(process.env.VERCEL
     ? {}
     : { output: "standalone" as const, outputFileTracingRoot: path.join(__dirname, "../..") }),

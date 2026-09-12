@@ -4,9 +4,8 @@ import createMDX from "@next/mdx";
 
 // Baked into the rewrites below at build time. A production build that
 // forgot to set it would ship rewrites pointing at localhost and fail only
-// once a visitor tried to sign in — make it fail the build instead. The
-// Docker image passes it as a build ARG; a hosted build sets it in the
-// project's environment.
+// once a visitor tried to sign in — make it fail the build instead. Set it
+// as a project environment variable on the hosted build (Vercel: daemun-web).
 if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
   throw new Error("API_URL must be set for a production build (it is baked into rewrites)");
 }
@@ -14,10 +13,10 @@ const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
-  // Docker: emit a self-contained server (see apps/web/Dockerfile). Docker-only:
-  // Vercel's builder does its own tracing and fails on standalone output in a
-  // workspace (it looks for .next/next-server.js.nft.json, which standalone
-  // mode never writes).
+  // Self-hosting only (a long-lived `node server.js`): emit a self-contained
+  // server. Skipped on Vercel, whose builder does its own tracing and fails on
+  // standalone output in a workspace (it looks for
+  // .next/next-server.js.nft.json, which standalone mode never writes).
   ...(process.env.VERCEL
     ? {}
     : { output: "standalone" as const, outputFileTracingRoot: path.join(__dirname, "../..") }),
