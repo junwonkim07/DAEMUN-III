@@ -27,7 +27,7 @@ import {
   ChatBlockedError,
   ChatUnavailableError,
   ChatUpstreamError,
-  generateReply,
+  startReply,
 } from "../lib/chat";
 import { countRelevantFaqs, renderSiteContext, type ChatFaq } from "../lib/chat-context";
 import { logChat } from "../lib/chat-log";
@@ -250,10 +250,11 @@ export const publicRoutes = new Hono()
 
       const systemPrompt = buildSystemPrompt(context, contact);
 
+      let stream: AsyncIterable<string>;
       try {
-        const reply = await generateReply(messages, systemPrompt);
-        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits });
-        return c.json({ reply });
+        // 첫 조각까지 여기서 받는다 — 아래 catch의 오류 응답들은 그래서
+        // 200 스트림을 열기 전에 나갈 수 있다.
+        stream = await startReply(messages, systemPrompt);
       } catch (err) {
         if (err instanceof ChatUnavailableError) {
           const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
@@ -280,5 +281,45 @@ export const publicRoutes = new Hono()
         }
         throw err;
       }
+
+      // 여기부터는 200 + SSE. 위젯은 content-type으로 이 경우와 위 JSON 오류
+      // 응답을 가른다.
+      //
+      // 왜 평문이 아니라 SSE인가: 사이에 낀 프록시(Next dev 서버, CDN)가 평문
+      // 응답은 gzip으로 묶어 버퍼링해 버려서 끝나야 한 덩어리로 도착한다.
+      // text/event-stream은 그 경로들이 전부 예외 처리해 조각이 그대로 흐른다.
+      // 조각은 JSON 문자열로 감싼다 — 줄바꿈이 SSE 프레이밍을 깨지 않도록.
+      let full = "";
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const send = (line: string) => controller.enqueue(encoder.encode(line));
+          try {
+            for await (const piece of stream) {
+              full += piece;
+              send(`data: ${JSON.stringify(piece)}\n\n`);
+            }
+          } catch (err) {
+            // 스트림 도중 끊김 — 받은 데까지는 살리고 조용히 끝낸다.
+            console.warn("[chat] stream ended early:", (err as Error).message);
+          } finally {
+            send("data: [DONE]\n\n");
+            logChat({
+              question: lastUser,
+              answer: full || CHAT_FALLBACK,
+              outcome: full ? "answered" : "error",
+              faqHits,
+            });
+            controller.close();
+          }
+        },
+      });
+
+      return c.body(body, 200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        // no-transform: 중간 프록시가 압축 등으로 본문을 건드리지 못하게 한다.
+        "cache-control": "no-cache, no-store, no-transform",
+        "x-accel-buffering": "no",
+      });
     },
   );
