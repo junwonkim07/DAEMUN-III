@@ -272,6 +272,39 @@ export const documentCreateSchema = z.object(documentFields).extend({
 export const documentUpdateSchema = z.object(documentFields).partial();
 
 /* ------------------------------------------------------------------ */
+/*  Announcements (§6-2 — 공개 /announcements 페이지)                  */
+/* ------------------------------------------------------------------ */
+
+export const announcementSchema = z.object({
+  id: str,
+  title: str,
+  body: str,
+  /** "YYYY-MM-DD" (빈 문자열이면 날짜 미정) */
+  date: str,
+  urgent: z.boolean(),
+  published: z.boolean(),
+  sortOrder: z.number().int(),
+});
+export type Announcement = z.infer<typeof announcementSchema>;
+
+const announcementFields = {
+  title: str.min(1),
+  body: str,
+  date: str,
+  urgent: z.boolean(),
+  published: z.boolean(),
+  sortOrder,
+};
+export const announcementCreateSchema = z.object(announcementFields).extend({
+  title: str.min(1).default("New announcement"),
+  body: str.default(""),
+  date: str.default(""),
+  urgent: z.boolean().default(false),
+  published: z.boolean().default(false),
+});
+export const announcementUpdateSchema = z.object(announcementFields).partial();
+
+/* ------------------------------------------------------------------ */
 /*  FAQ (안내 챗봇 지식베이스 — SiteData에는 포함되지 않는다)          */
 /* ------------------------------------------------------------------ */
 
@@ -368,4 +401,6 @@ export type SiteData = {
   resolutions: Record<string, Resolution[]>;
   schedule: ScheduleDayWithItems[];
   documents: SiteDocument[];
+  /** public payload carries published only; admin preview carries all */
+  announcements: Announcement[];
 };

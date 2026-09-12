@@ -3,6 +3,8 @@ import { zValidator } from "@hono/zod-validator";
 import { asc, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
+  announcementCreateSchema,
+  announcementUpdateSchema,
   committeeCreateSchema,
   committeeUpdateSchema,
   conferenceUpdateSchema,
@@ -26,6 +28,7 @@ import {
   topicUpdateSchema,
 } from "@daemun/shared";
 import {
+  announcements,
   chatLogs,
   committees,
   conference,
@@ -211,6 +214,14 @@ export const adminRoutes = new Hono()
   .route(
     "/documents",
     crudRoutes({ table: documents, create: documentCreateSchema, update: documentUpdateSchema }),
+  )
+  .route(
+    "/announcements",
+    crudRoutes({
+      table: announcements,
+      create: announcementCreateSchema,
+      update: announcementUpdateSchema,
+    }),
   )
 
   /* -- FAQ (안내 챗봇 지식베이스, SiteData 밖) ----------------------- */

@@ -248,6 +248,26 @@ export const documents = pgTable("documents", {
 });
 
 /* ------------------------------------------------------------------ */
+/*  Announcements (§6-2)                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Time-sensitive notices for the public /announcements page. `published`
+ * false = draft (admin-only); the public payload only carries published
+ * ones. `urgent` pins it to the top with a highlighted band on the site.
+ */
+export const announcements = pgTable("announcements", {
+  id: id(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  date: text("date").notNull().default(""),
+  urgent: boolean("urgent").notNull().default(false),
+  published: boolean("published").notNull().default(false),
+  sortOrder: sortOrder(),
+  ...timestamps,
+});
+
+/* ------------------------------------------------------------------ */
 /*  Auth (better-auth core + admin plugin)                             */
 /* ------------------------------------------------------------------ */
 

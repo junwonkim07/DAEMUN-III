@@ -12,6 +12,7 @@ import {
   committees,
   conference,
   departments,
+  announcements,
   documents,
   people,
   resolutions,
@@ -50,29 +51,39 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
     .where(eq(conference.id, "main"))
     .limit(1);
 
-  const [committeeRows, departmentRows, peopleRows, resolutionRows, dayRows, documentRows] =
-    await Promise.all([
-      db.query.committees.findMany({
-        orderBy: [asc(committees.sortOrder), asc(committees.createdAt)],
-        with: { topics: { orderBy: [asc(topics.sortOrder), asc(topics.createdAt)] } },
-      }),
-      db.query.departments.findMany({
-        orderBy: [asc(departments.sortOrder), asc(departments.createdAt)],
-      }),
-      db.query.people.findMany({
-        orderBy: [asc(people.sortOrder), asc(people.createdAt)],
-      }),
-      db.query.resolutions.findMany({ orderBy: [asc(resolutions.createdAt)] }),
-      db.query.scheduleDays.findMany({
-        orderBy: [asc(scheduleDays.sortOrder), asc(scheduleDays.createdAt)],
-        with: {
-          items: { orderBy: [asc(scheduleItems.sortOrder), asc(scheduleItems.createdAt)] },
-        },
-      }),
-      db.query.documents.findMany({
-        orderBy: [asc(documents.sortOrder), asc(documents.createdAt)],
-      }),
-    ]);
+  const [
+    committeeRows,
+    departmentRows,
+    peopleRows,
+    resolutionRows,
+    dayRows,
+    documentRows,
+    announcementRows,
+  ] = await Promise.all([
+    db.query.committees.findMany({
+      orderBy: [asc(committees.sortOrder), asc(committees.createdAt)],
+      with: { topics: { orderBy: [asc(topics.sortOrder), asc(topics.createdAt)] } },
+    }),
+    db.query.departments.findMany({
+      orderBy: [asc(departments.sortOrder), asc(departments.createdAt)],
+    }),
+    db.query.people.findMany({
+      orderBy: [asc(people.sortOrder), asc(people.createdAt)],
+    }),
+    db.query.resolutions.findMany({ orderBy: [asc(resolutions.createdAt)] }),
+    db.query.scheduleDays.findMany({
+      orderBy: [asc(scheduleDays.sortOrder), asc(scheduleDays.createdAt)],
+      with: {
+        items: { orderBy: [asc(scheduleItems.sortOrder), asc(scheduleItems.createdAt)] },
+      },
+    }),
+    db.query.documents.findMany({
+      orderBy: [asc(documents.sortOrder), asc(documents.createdAt)],
+    }),
+    db.query.announcements.findMany({
+      orderBy: [asc(announcements.sortOrder), asc(announcements.createdAt)],
+    }),
+  ]);
 
   const strip = <T extends { createdAt: Date; updatedAt: Date }>(row: T) => {
     const { createdAt: _c, updatedAt: _u, ...rest } = row;
@@ -134,6 +145,9 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
       items: items.map(strip),
     })),
     documents: documentRows.map(strip),
+    announcements: announcementRows
+      .filter((a) => !opts.publicView || a.published)
+      .map(strip),
   };
 }
 

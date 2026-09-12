@@ -404,4 +404,16 @@ export const defaultSite: SiteData = {
       sortOrder: 5,
     },
   ],
+
+  announcements: [
+    {
+      id: "website-launch",
+      title: "DAEMUN III website is live",
+      body: "Welcome to the DAEMUN III website. The Secretariat introductions and the Guide to MUN are available now.\n\nCommittee topics and chair reports will be published in September, before the conference. Resolution submissions open during the conference itself.\n\nCheck this page for schedule changes and urgent notices — anything time-sensitive will be posted here first.",
+      date: "2026-09-01",
+      urgent: false,
+      published: true,
+      sortOrder: 0,
+    },
+  ],
 };
