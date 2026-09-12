@@ -73,7 +73,7 @@ export function HeroSiena({
               <ArrowWeired className="rotate-90" />
             </div>
             <p className="font-roman md:text-md text-xs uppercase tracking-widest text-white">
-              {conference.session} · November 2026
+              {conference.session} · {conference.dates}
             </p>
           </div>
           <div className="absolute left-0 top-0 z-10 h-1/2 w-full bg-gradient-to-t from-transparent to-black/90" />
