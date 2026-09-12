@@ -1,16 +1,48 @@
 "use client";
 
 /**
- * 안내 챗봇 "Roger" 위젯 — 우하단 플로팅 버튼 + 대화 패널.
+ * 안내 챗봇 "Roger" 위젯 — 우하단 플로팅 버튼이 gooey(점성) 효과로 늘어나
+ * 대화 패널이 되는 UI. 대화 UI 자체는 AI Elements(conversation / message /
+ * prompt-input / loader)로 구성한다.
+ *
+ * 레이어가 둘이다:
+ *  - 필터 레이어(SVG gooey filter): 남색 blob(패널 모양)과 버튼 원. 색 덩어리만
+ *    있어서 blur+alpha threshold를 먹여도 깨질 글자가 없다.
+ *  - 콘텐츠 레이어(필터 없음): 실제 헤더·메시지·입력창. blob이 다 늘어난 뒤
+ *    페이드인하고, 닫을 때는 먼저 사라진다. 글자가 blur 되지 않는 이유.
  *
  * 무상태: 대화 이력은 이 컴포넌트 state에만 있고, 전송 시 최근 MAX_HISTORY턴을
  * POST /api/chat 으로 보낸다 (next.config.ts가 API로 rewrite). 첫 인사는
  * 서버 호출 없이 하드코딩 (설계안 §opening_message).
  */
 
-import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Nanum_Gothic } from "next/font/google";
+import { MessageCircle, X } from "lucide-react";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import { Loader } from "@/components/ai-elements/loader";
+import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
+
+/** 대화창 전용 본문 서체 — 사이트 본문(세리프)과 달리 채팅은 고딕이 읽기 편하다. */
+const nanumGothic = Nanum_Gothic({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  display: "swap",
+});
 
 /**
  * `local`은 이 컴포넌트가 만든 말풍선(첫 인사, 오류 안내)이라는 표시다.
@@ -42,47 +74,97 @@ const OPENING: Msg = {
   role: "assistant",
   local: true,
   content:
-    "안녕하세요! DAEMUN 안내 챗봇 Roger예요. 실시간 상담이 아니라 자동응답이에요. 동아리 소개, 신청 방법, 활동 일정 등 궁금하신 점을 편하게 물어보세요.",
+    "안녕하세요, DAEMUN 안내 챗봇 Roger예요.\n\n일정이나 위원회, 신청 방법처럼 궁금한 게 있으면 편하게 물어보세요. 자동응답이라 답이 애매하면 인스타그램이나 이메일로 문의 주셔도 돼요.",
 };
 
 const NETWORK_ERROR = "연결에 문제가 있어요. 잠시 후 다시 시도해주세요.";
 
+/* ---------- 크기 ---------- */
+
+/** 플로팅 버튼 지름(px). Tailwind h-14. */
+const FAB = 56;
+/** 버튼 위쪽으로 패널이 시작하는 간격(px) = 버튼 + 16. */
+const PANEL_LIFT = FAB + 16;
+const PANEL_W = 352; // 22rem
+const PANEL_H = 512; // 32rem
+const VIEWPORT_GUTTER_X = 40; // 화면 양옆 여백 합
+const VIEWPORT_GUTTER_Y = 128;
+
+function usePanelSize() {
+  const [size, setSize] = useState({ w: PANEL_W, h: PANEL_H });
+  useEffect(() => {
+    const measure = () =>
+      setSize({
+        w: Math.min(PANEL_W, window.innerWidth - VIEWPORT_GUTTER_X),
+        h: Math.min(PANEL_H, window.innerHeight - VIEWPORT_GUTTER_Y),
+      });
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  return size;
+}
+
+/* ---------- 모션 ---------- */
+
+const SPRING = { type: "spring", stiffness: 300, damping: 30 } as const;
+
+/** 가장자리를 녹여 붙이는 gooey 필터 — blur 후 alpha를 급경사로 세운다. */
+function GooeyFilter() {
+  return (
+    <svg aria-hidden="true" className="absolute h-0 w-0" focusable="false">
+      <defs>
+        <filter id="chat-gooey">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4.4" result="blur" />
+          <feColorMatrix
+            in="blur"
+            mode="matrix"
+            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"
+            result="goo"
+          />
+          <feBlend in="SourceGraphic" in2="goo" />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
+
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([OPENING]);
-  const [input, setInput] = useState("");
+  const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const panel = usePanelSize();
+  const reduceMotion = useReducedMotion();
   const fabRef = useRef<HTMLButtonElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, loading, open]);
+    if (!open) return;
+    // blob이 늘어난 뒤 콘텐츠가 뜨므로 포커스도 그때 준다.
+    const t = window.setTimeout(() => textareaRef.current?.focus(), reduceMotion ? 0 : 350);
+    return () => window.clearTimeout(t);
+  }, [open, reduceMotion]);
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
-  function close() {
+  const close = useCallback(() => {
     setOpen(false);
     fabRef.current?.focus();
-  }
+  }, []);
 
   function reset() {
     setMessages([OPENING]);
-    setInput("");
-    inputRef.current?.focus();
+    setDraft("");
+    textareaRef.current?.focus();
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send({ text: raw }: PromptInputMessage) {
+    const text = raw.trim();
     if (!text || loading) return;
 
     const next = [...messages, { role: "user" as const, content: text }];
     setMessages(next);
-    setInput("");
+    setDraft("");
     setLoading(true);
 
     // 첫 인사·오류 안내(local)는 빼고, 개수·크기 한도 안쪽으로 잘라 보낸다.
@@ -120,106 +202,158 @@ export function ChatWidget() {
     }
   }
 
+  const spring = reduceMotion ? { duration: 0 } : SPRING;
+  const blob = open
+    ? { width: panel.w, height: panel.h, borderRadius: 16, bottom: PANEL_LIFT }
+    : { width: FAB, height: FAB, borderRadius: FAB / 2, bottom: 0 };
+
   return (
-    <>
+    <div
+      data-chat-widget
+      className={cn("fixed bottom-5 right-5 z-[60]", nanumGothic.className)}
+      style={{ width: panel.w, height: panel.h + PANEL_LIFT }}
+    >
+      <GooeyFilter />
+
+      {/* 필터 레이어 — 색 덩어리만. 글자는 여기 두지 않는다. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ filter: "url(#chat-gooey)" }}
+      >
+        <motion.div
+          className="absolute right-0 bg-navy"
+          initial={false}
+          animate={blob}
+          transition={{
+            ...spring,
+            // 먼저 위로 뽑히고(bottom) 그 다음 넓어지도록 살짝 시차를 둔다.
+            width: { ...spring, delay: reduceMotion ? 0 : 0.1 },
+            height: { ...spring, delay: reduceMotion ? 0 : 0.1 },
+            borderRadius: { ...spring, delay: reduceMotion ? 0 : 0.1 },
+          }}
+        />
+        <div className="absolute bottom-0 right-0 size-14 rounded-full bg-navy" />
+      </div>
+
+      {/* 콘텐츠 레이어 */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="panel"
+            role="dialog"
+            aria-label="DAEMUN 안내 챗봇"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.2, delay: reduceMotion ? 0 : 0.3 } }}
+            exit={{ opacity: 0, transition: { duration: 0.1 } }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") close();
+            }}
+            className="absolute right-0 flex flex-col overflow-hidden rounded-2xl text-ink"
+            style={{ width: panel.w, height: panel.h, bottom: PANEL_LIFT }}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-2 px-4 pb-3 pt-3.5 text-white">
+              <div>
+                <p className="font-custom text-lg leading-none">Roger</p>
+                <p className="mt-1 text-xs text-white/70">DAEMUN 안내 챗봇 · 자동응답</p>
+              </div>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={loading || messages.length <= 1}
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+              >
+                새 대화
+              </button>
+            </header>
+
+            <div className="mx-1 mb-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white">
+              {/* 홈의 <ReactLenis root>가 휠 스크롤을 가로채므로 이 목록은 제외시킨다. */}
+              <Conversation
+                data-lenis-prevent
+                aria-live="polite"
+                className="min-h-0 flex-1"
+              >
+                <ConversationContent className="gap-3 px-3 py-3">
+                  {messages.map((m, i) => (
+                    <Message key={i} from={m.role} className="max-w-[88%]">
+                      <MessageContent
+                        className={cn(
+                          "text-[13.5px] leading-relaxed [&_a]:break-all [&_a]:underline [&_a]:underline-offset-2",
+                          m.role === "user"
+                            ? "group-[.is-user]:rounded-2xl group-[.is-user]:rounded-br-md group-[.is-user]:bg-brand group-[.is-user]:px-3.5 group-[.is-user]:py-2 group-[.is-user]:text-white"
+                            : "rounded-2xl rounded-bl-md bg-wash px-3.5 py-2 text-body",
+                        )}
+                      >
+                        {m.role === "assistant" ? (
+                          <MessageResponse>{m.content}</MessageResponse>
+                        ) : (
+                          <span className="whitespace-pre-wrap">{m.content}</span>
+                        )}
+                      </MessageContent>
+                    </Message>
+                  ))}
+                  {loading && (
+                    <Message from="assistant" className="max-w-[88%]">
+                      <MessageContent className="flex-row items-center gap-2 rounded-2xl rounded-bl-md bg-wash px-3.5 py-2.5 text-xs text-faint">
+                        <Loader size={14} />
+                        답변을 준비하고 있어요
+                      </MessageContent>
+                    </Message>
+                  )}
+                </ConversationContent>
+                <ConversationScrollButton className="bottom-2 size-8 border-line bg-white shadow-md" />
+              </Conversation>
+
+              <div className="shrink-0 border-t border-line px-2 py-2">
+                <PromptInput
+                  onSubmit={send}
+                  className="[&>[data-slot=input-group]]:rounded-xl [&>[data-slot=input-group]]:border-line [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-brand [&>[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-brand/20"
+                >
+                  <PromptInputBody>
+                    <PromptInputTextarea
+                      ref={textareaRef}
+                      placeholder="궁금한 점을 입력하세요"
+                      maxLength={4000}
+                      rows={1}
+                      onChange={(e) => setDraft(e.currentTarget.value)}
+                      className="max-h-32 min-h-10 px-3 py-2.5 text-[13.5px] placeholder:text-faint"
+                    />
+                  </PromptInputBody>
+                  <PromptInputFooter className="justify-end px-1.5 pb-1.5 pt-0">
+                    <PromptInputSubmit
+                      aria-label="보내기"
+                      disabled={loading || !draft.trim()}
+                      status={loading ? "submitted" : undefined}
+                      className="rounded-full bg-navy text-white hover:bg-brand"
+                    />
+                  </PromptInputFooter>
+                </PromptInput>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 플로팅 버튼 — 색은 필터 레이어의 원이 담당하고, 여기는 아이콘과 포커스만. */}
       <button
         ref={fabRef}
         type="button"
         aria-label={open ? "안내 챗봇 닫기" : "안내 챗봇 열기"}
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-5 right-5 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-navy text-white shadow-lg transition hover:bg-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        onClick={() => (open ? close() : setOpen(true))}
+        className="absolute bottom-0 right-0 flex size-14 items-center justify-center rounded-full text-white transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
-      </button>
-
-      {open && (
-        <div
-          role="dialog"
-          aria-label="DAEMUN 안내 챗봇"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") close();
-          }}
-          className="fixed bottom-24 right-5 z-[60] flex h-[32rem] max-h-[calc(100vh-8rem)] w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-2xl"
+        <motion.span
+          key={open ? "x" : "chat"}
+          initial={{ rotate: -90, opacity: 0 }}
+          animate={{ rotate: 0, opacity: 1 }}
+          transition={{ duration: 0.15 }}
+          className="flex"
         >
-          <header className="flex items-start justify-between gap-2 border-b border-line px-4 py-3">
-            <div>
-              <p className="font-custom text-lg leading-none text-ink">Roger</p>
-              <p className="mt-1 text-xs text-muted">DAEMUN 안내 챗봇 · 자동응답</p>
-            </div>
-            <button
-              type="button"
-              onClick={reset}
-              disabled={loading || messages.length <= 1}
-              className="shrink-0 rounded-md px-2 py-1 text-xs text-muted hover:bg-wash hover:text-ink disabled:opacity-40"
-            >
-              새 대화
-            </button>
-          </header>
-
-          <div
-            ref={scrollRef}
-            role="log"
-            aria-live="polite"
-            aria-atomic="false"
-            // 홈의 <ReactLenis root>가 휠 스크롤을 가로채므로 이 목록은 제외시킨다.
-            data-lenis-prevent
-            className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
-          >
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-relaxed",
-                  m.role === "user"
-                    ? "ml-auto bg-brand text-white"
-                    : "bg-wash text-body",
-                )}
-              >
-                {m.content}
-              </div>
-            ))}
-            {loading && (
-              <div className="max-w-[85%] rounded-2xl bg-wash px-3 py-2 text-sm text-faint">
-                답변을 준비하고 있어요…
-              </div>
-            )}
-          </div>
-
-          <form
-            className="flex items-center gap-2 border-t border-line px-3 py-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send();
-            }}
-          >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                // 한글 등 IME 조합 중 Enter는 글자 확정용이므로 전송하지 않는다.
-                // isComposing은 WebKit에서 놓칠 때가 있어 keyCode 229도 함께 본다.
-                if (e.key !== "Enter" || e.shiftKey) return;
-                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-                e.preventDefault();
-                void send();
-              }}
-              placeholder="궁금한 점을 입력하세요"
-              maxLength={4000}
-              className="min-w-0 flex-1 rounded-full border border-line bg-white px-3.5 py-2 text-sm text-ink placeholder:text-faint focus:border-brand focus:outline-none"
-            />
-            <button
-              type="submit"
-              aria-label="보내기"
-              disabled={loading || !input.trim()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white transition hover:bg-brand disabled:opacity-40"
-            >
-              <Send size={16} />
-            </button>
-          </form>
-        </div>
-      )}
-    </>
+          {open ? <X size={22} /> : <MessageCircle size={22} />}
+        </motion.span>
+      </button>
+    </div>
   );
 }

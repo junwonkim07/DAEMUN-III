@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* streamdown(챗봇 답변 마크다운)이 쓰는 유틸리티 클래스를 빌드에 포함시킨다. */
+@source "../../node_modules/streamdown/dist/*.js";
 
 :root {
   --background: #ffffff;
@@ -21,6 +23,25 @@
   --color-faint: #8a8f99;
   --color-line: #e5e4e0;
   --color-wash: #f7f6f4;
+
+  /* shadcn/ui 의미 토큰 — components/ui·ai-elements(챗봇 위젯)가 기대하는
+     이름들을 위 팔레트에 대응시킨다. `--color-muted`는 이 사이트에서 이미
+     글자색으로 쓰고 있어 그대로 두고, shadcn의 muted-foreground만 추가. */
+  --color-primary: #0a1428;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f7f6f4;
+  --color-secondary-foreground: #12171f;
+  --color-muted-foreground: #5e6673;
+  --color-accent: #f7f6f4;
+  --color-accent-foreground: #12171f;
+  --color-border: #e5e4e0;
+  --color-input: #e5e4e0;
+  --color-ring: #0c4884;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #12171f;
+  --color-card: #ffffff;
+  --color-card-foreground: #12171f;
+  --color-destructive: #b23b3b;
 
   --font-sans: roman, "Times New Roman", serif;
   --font-serif: roman, "Times New Roman", serif;
@@ -55,4 +76,11 @@ body {
 ::selection {
   background: #0c4884;
   color: #ffffff;
+}
+
+/* 챗봇 위젯 안에서는 색 지정 없는 `border`가 shadcn 기본(border-border)처럼 보이게 */
+[data-chat-widget] *,
+[data-chat-widget] *::before,
+[data-chat-widget] *::after {
+  border-color: var(--color-line);
 }
