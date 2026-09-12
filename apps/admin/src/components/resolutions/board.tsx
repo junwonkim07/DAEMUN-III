@@ -10,7 +10,7 @@ import type {
 } from "@daemun/shared";
 import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { resolutionHooks, useUploadResolutionDoc } from "@/lib/resolutions";
+import { resolutionHooks, useResolutionVersions, useUploadResolutionDoc } from "@/lib/resolutions";
 import { useTeams } from "@/lib/teams";
 import { InlineText } from "@/components/inline-edit";
 import { Button } from "@/components/ui/button";
@@ -185,6 +185,8 @@ function ResolutionRow({
 }) {
   const update = resolutionHooks.useUpdate();
   const remove = resolutionHooks.useRemove();
+  const [showHistory, setShowHistory] = useState(false);
+  const versions = useResolutionVersions(resolution.id, showHistory);
 
   const busy = update.isPending || remove.isPending;
   const err =
@@ -248,6 +250,18 @@ function ResolutionRow({
           </>
         )}
         <span>Updated {new Date(resolution.updatedAt).toLocaleString("en-GB")}</span>
+        {resolution.document && (
+          <>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setShowHistory((v) => !v)}
+              className="underline decoration-dotted hover:text-muted"
+            >
+              {showHistory ? "Hide history" : "Upload history"}
+            </button>
+          </>
+        )}
         {busy && <span className="text-muted">Saving…</span>}
         {err && (
           <span className="text-[#b23b3b]">
@@ -255,6 +269,35 @@ function ResolutionRow({
           </span>
         )}
       </div>
+
+      {showHistory && (
+        <div className="mt-1 pl-1.5 text-[11px] text-faint">
+          {versions.isLoading ? (
+            <p>Loading…</p>
+          ) : versions.data && versions.data.length > 0 ? (
+            <ul className="space-y-0.5">
+              {versions.data.map((v, i) => (
+                <li key={v.id} className="flex items-center gap-2">
+                  <span className="text-faint">
+                    {i === 0 ? "Current" : `Version ${versions.data!.length - i}`}
+                  </span>
+                  <a
+                    href={v.document}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted underline hover:text-ink"
+                  >
+                    View
+                  </a>
+                  <span>{new Date(v.createdAt).toLocaleString("en-GB")}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No upload history recorded.</p>
+          )}
+        </div>
+      )}
     </li>
   );
 }

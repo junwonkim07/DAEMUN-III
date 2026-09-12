@@ -1,18 +1,8 @@
 import { Hono } from "hono";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { UPLOAD_EXTENSIONS, uploadTypeOf, type UploadConfig } from "@daemun/shared";
-import { env } from "../env";
-import { saveUpload, UploadRejectedError } from "../lib/file-store";
+import type { HandleUploadBody } from "@vercel/blob/client";
+import { mintUploadToken, saveUpload, uploadConfig, UploadRejectedError } from "../lib/file-store";
 import { storage } from "../lib/storage";
 import { sweepOrphanUploads } from "../lib/uploads-gc";
-
-/**
- * A direct-upload pathname the browser proposed. It must look like the keys
- * we mint ourselves (`<uuid><ext>`) — the client picks the name, so without
- * this it could overwrite an unrelated object or plant a path outside the
- * store's flat namespace.
- */
-const KEY_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/;
 
 export const uploadRoutes = new Hono()
   /**
@@ -20,60 +10,20 @@ export const uploadRoutes = new Hono()
    * straight to storage and what this server will accept. The limits are the
    * server's, not a copy kept in the frontend.
    */
-  .get("/config", (c) =>
-    c.json<UploadConfig>({
-      mode: storage.name === "local" ? "proxy" : "direct",
-      maxBytes: env.maxUploadBytes,
-      extensions: UPLOAD_EXTENSIONS,
-    }),
-  )
+  .get("/config", (c) => c.json(uploadConfig()))
 
   /**
    * `POST /api/admin/uploads/token` — mints a short-lived token the browser
-   * uses to PUT the file straight into the store, skipping this server.
-   *
-   * That detour exists because a serverless function caps its request body at
-   * about 4.5 MB while MAX_UPLOAD_MB is 25: a resolution PDF cannot fit through
-   * the function at all. The rules still hold — they move into the token, and
-   * the store enforces `maximumSizeInBytes` itself, so a client that lies about
-   * the size still gets rejected.
+   * uses to PUT the file straight into the store, skipping this server. See
+   * `mintUploadToken` in lib/file-store.ts for why this detour exists.
    */
   .post("/token", async (c) => {
     if (storage.name === "local") {
       return c.json({ error: "This server stores uploads locally; POST the file instead." }, 409);
     }
-
     try {
       const body = (await c.req.json()) as HandleUploadBody;
-      // Only the token-minting event is ever expected here; the upload-completed
-      // event exists for the callback we deliberately do not register below.
-      if (body?.type !== "blob.generate-client-token") {
-        return c.json({ error: "Unexpected event type" }, 400);
-      }
-      const json = await handleUpload({
-        body,
-        request: c.req.raw,
-        onBeforeGenerateToken: async (pathname) => {
-          if (!KEY_SHAPE.test(pathname)) {
-            throw new UploadRejectedError("Malformed upload key", 400);
-          }
-          const type = uploadTypeOf(pathname);
-          if (!type) throw new UploadRejectedError("Unsupported file type", 415);
-          return {
-            allowedContentTypes: [type.mime],
-            maximumSizeInBytes: env.maxUploadBytes,
-            addRandomSuffix: false,
-            // The client picks the key, so state outright that an existing
-            // object must never be replaced rather than lean on the API default.
-            allowOverwrite: false,
-          };
-        },
-        // Deliberately no onUploadCompleted. With it absent the SDK embeds no
-        // callback URL in the token, so nothing later tries to call /api/admin
-        // back without a session (and nothing warns off-Vercel). The browser
-        // hands the URL to the mutation that writes the row; an object no row
-        // ever references is collected by /gc.
-      });
+      const json = await mintUploadToken(body, c.req.raw);
       return c.json(json);
     } catch (err) {
       if (err instanceof UploadRejectedError) {

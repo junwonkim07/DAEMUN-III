@@ -6,12 +6,21 @@
 // team's lead, upload the draft.
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
-import { committees, resolutions, teams, topics, user } from "@daemun/db";
+import type { HandleUploadBody } from "@vercel/blob/client";
+import { and, eq, ne } from "drizzle-orm";
+import { committees, resolutions, resolutionVersions, teams, topics, user } from "@daemun/db";
 import { db } from "../db";
-import { saveUpload, UploadRejectedError } from "../lib/file-store";
+import {
+  mintUploadToken,
+  saveUpload,
+  uploadConfig,
+  UploadRejectedError,
+} from "../lib/file-store";
+import { resolutionUploadedMail, sendMail } from "../lib/mail";
 import { requireUser, type AuthEnv } from "../middleware/auth";
 import { revalidateWeb } from "../lib/revalidate";
+import { env } from "../env";
+import { storage } from "../lib/storage";
 
 async function myTeamContext(userId: string) {
   const [me] = await db.select().from(user).where(eq(user.id, userId));
@@ -21,6 +30,63 @@ async function myTeamContext(userId: string) {
   if (!team) return null;
 
   return { me, team };
+}
+
+/**
+ * Creates the resolution on first upload or swaps the file on a re-upload,
+ * appends the upload to `resolution_versions`, and emails the rest of the
+ * team (best-effort — a mail failure must not fail the upload itself).
+ */
+async function finalizeUpload(
+  ctx: NonNullable<Awaited<ReturnType<typeof myTeamContext>>>,
+  url: string,
+) {
+  const [existing] = await db.select().from(resolutions).where(eq(resolutions.teamId, ctx.team.id));
+
+  const row = existing
+    ? (
+        await db
+          .update(resolutions)
+          .set({ document: url })
+          .where(eq(resolutions.id, existing.id))
+          .returning()
+      )[0]!
+    : (
+        await db
+          .insert(resolutions)
+          .values({
+            id: randomUUID(),
+            committeeId: ctx.team.committeeId,
+            topicId: ctx.team.topicId,
+            teamId: ctx.team.id,
+            label: ctx.team.name || "Draft resolution",
+            submitter: ctx.me.name,
+            status: "review",
+            document: url,
+          })
+          .returning()
+      )[0]!;
+
+  await db.insert(resolutionVersions).values({
+    id: randomUUID(),
+    resolutionId: row.id,
+    document: url,
+  });
+
+  const members = await db
+    .select({ email: user.email })
+    .from(user)
+    .where(and(eq(user.teamId, ctx.team.id), ne(user.id, ctx.me.id)));
+  await Promise.all(
+    members.map((m) =>
+      sendMail(resolutionUploadedMail(m.email, ctx.team.name, `${env.webUrl}/account`)).catch(
+        (err) => console.error("[delegate] failed to notify team member of upload", err),
+      ),
+    ),
+  );
+
+  revalidateWeb();
+  return { row, created: !existing };
 }
 
 export const delegateRoutes = new Hono<AuthEnv>()
@@ -49,20 +115,50 @@ export const delegateRoutes = new Hono<AuthEnv>()
     });
   })
 
+  /** Same shape as `GET /api/admin/uploads/config` — lets the web app pick proxy vs. direct upload. */
+  .get("/resolutions/config", (c) => c.json(uploadConfig()))
+
+  /**
+   * Mints a direct-to-storage upload token, mirroring
+   * `POST /api/admin/uploads/token` — see `mintUploadToken` in
+   * lib/file-store.ts for why this exists. Lead-only, same as the upload
+   * itself.
+   */
+  .post("/resolutions/token", async (c) => {
+    const ctx = await myTeamContext(c.get("session").user.id);
+    if (!ctx) return c.json({ error: "You are not assigned to a team yet" }, 403);
+    if (ctx.me.teamRole !== "lead") {
+      return c.json({ error: "Only your team's lead can upload the draft" }, 403);
+    }
+    if (storage.name === "local") {
+      return c.json({ error: "This server stores uploads locally; POST the file instead." }, 409);
+    }
+    try {
+      const body = (await c.req.json()) as HandleUploadBody;
+      const json = await mintUploadToken(body, c.req.raw);
+      return c.json(json);
+    } catch (err) {
+      if (err instanceof UploadRejectedError) return c.json({ error: err.message }, err.status);
+      if (err instanceof SyntaxError) return c.json({ error: "Malformed request body" }, 400);
+      throw err;
+    }
+  })
+
   /**
    * Upload or replace my team's draft. Lead-only for v1 (handover.md §6-1
-   * decision D — team co-editing is a fast-follow). The first upload
-   * creates the resolution row with status "review"; a later re-upload
-   * just swaps the file and leaves status where the admin left it.
+   * decision D — team co-editing is a fast-follow, but see the versioning
+   * note below). The first upload creates the resolution row with status
+   * "review"; a later re-upload just swaps the file and leaves status where
+   * the admin left it. Every upload is recorded in `resolution_versions`
+   * and emails the rest of the team.
    *
-   * NOTE for the frontend (§6-1 part 2/2): this streams the file through the
-   * API. On a serverless host the request body is capped near 4.5 MB while
-   * MAX_UPLOAD_MB is 25, so a full-size resolution PDF cannot get through
-   * here. The admin panel already uploads straight to storage instead — see
-   * `GET /api/admin/uploads/config` + `POST /api/admin/uploads/token` in
-   * routes/uploads.ts and `uploadFile()` in apps/admin/src/lib/api.ts. Mirror
-   * that here (a delegate-scoped token route + the same client branch) before
-   * shipping the delegate UI; keep this multipart path for local-disk hosts.
+   * Two ways in, matching `POST /api/admin/uploads`:
+   *  - multipart `file` — streamed through this function. Only works on a
+   *    host that can take a ~25 MB body (local disk storage).
+   *  - JSON `{ url }` — the browser already PUT the file straight into
+   *    object storage using a token from `/resolutions/token` and just needs
+   *    the row written; this is the path Vercel (and its ~4.5 MB function
+   *    body cap) requires.
    */
   .post("/resolutions", async (c) => {
     const ctx = await myTeamContext(c.get("session").user.id);
@@ -71,46 +167,30 @@ export const delegateRoutes = new Hono<AuthEnv>()
       return c.json({ error: "Only your team's lead can upload the draft" }, 403);
     }
 
-    const body = await c.req.parseBody();
-    const file = body["file"];
-    if (!(file instanceof File)) {
-      return c.json({ error: "Expected a multipart `file` field" }, 400);
+    let url: string;
+    if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
+      const body = await c.req.parseBody();
+      const file = body["file"];
+      if (!(file instanceof File)) {
+        return c.json({ error: "Expected a multipart `file` field" }, 400);
+      }
+      try {
+        url = (await saveUpload(file)).url;
+      } catch (err) {
+        if (err instanceof UploadRejectedError) return c.json({ error: err.message }, err.status);
+        throw err;
+      }
+    } else {
+      const body = await c.req.json<{ url?: string }>().catch(() => null);
+      // Only a URL minted by this store may be finalized. Without this check a
+      // team lead could record an arbitrary external (or javascript:) href as
+      // the team's draft, which admins then open as a link.
+      if (!body?.url || typeof body.url !== "string" || !storage.keyOf(body.url)) {
+        return c.json({ error: "Expected a JSON `url` field pointing at this upload store" }, 400);
+      }
+      url = body.url;
     }
 
-    let saved;
-    try {
-      saved = await saveUpload(file);
-    } catch (err) {
-      if (err instanceof UploadRejectedError) return c.json({ error: err.message }, err.status);
-      throw err;
-    }
-
-    const [existing] = await db.select().from(resolutions).where(eq(resolutions.teamId, ctx.team.id));
-
-    const row = existing
-      ? (
-          await db
-            .update(resolutions)
-            .set({ document: saved.url })
-            .where(eq(resolutions.id, existing.id))
-            .returning()
-        )[0]
-      : (
-          await db
-            .insert(resolutions)
-            .values({
-              id: randomUUID(),
-              committeeId: ctx.team.committeeId,
-              topicId: ctx.team.topicId,
-              teamId: ctx.team.id,
-              label: ctx.team.name || "Draft resolution",
-              submitter: ctx.me.name,
-              status: "review",
-              document: saved.url,
-            })
-            .returning()
-        )[0];
-
-    revalidateWeb();
-    return c.json(row, existing ? 200 : 201);
+    const { row, created } = await finalizeUpload(ctx, url);
+    return c.json(row, created ? 201 : 200);
   });

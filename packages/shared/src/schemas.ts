@@ -202,6 +202,15 @@ export const resolutionCreateSchema = z.object(resolutionFields).extend({
 });
 export const resolutionUpdateSchema = z.object(resolutionFields).partial();
 
+/** Read-only — one row per upload, written by the delegate upload route only. */
+export const resolutionVersionSchema = z.object({
+  id: str,
+  resolutionId: str,
+  document: str,
+  createdAt: z.string(),
+});
+export type ResolutionVersion = z.infer<typeof resolutionVersionSchema>;
+
 /* ------------------------------------------------------------------ */
 /*  Schedule                                                           */
 /* ------------------------------------------------------------------ */
