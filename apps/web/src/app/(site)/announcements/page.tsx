@@ -13,13 +13,14 @@ function formatDate(iso: string) {
 /**
  * Public announcements — driven by SiteData.announcements, edited from the
  * admin panel's Announcements screen. The API only sends published ones;
- * order is admin sortOrder with urgent pinned first.
+ * order is urgent first, then newest date, then the admin's manual sortOrder
+ * as the tie-break (so the admin reorder arrows decide between same-day posts).
  */
 export default async function AnnouncementsPage() {
   const { announcements } = await getSite();
   const sorted = [...announcements].sort((a, b) => {
     if (!!a.urgent !== !!b.urgent) return a.urgent ? -1 : 1;
-    return b.date.localeCompare(a.date);
+    return b.date.localeCompare(a.date) || a.sortOrder - b.sortOrder;
   });
 
   return (
