@@ -11,7 +11,7 @@ import type {
 import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { resolutionHooks, useResolutionVersions, useUploadResolutionDoc } from "@/lib/resolutions";
-import { useTeams } from "@/lib/teams";
+import { usePublishApproved, useTeams } from "@/lib/teams";
 import { InlineText } from "@/components/inline-edit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -61,13 +61,35 @@ function CommitteeSection({
   }
   const knownTopicIds = new Set(committee.topics.map((t) => t.id));
   const orphanTopicIds = [...byTopic.keys()].filter((id) => !knownTopicIds.has(id));
+  const approvedCount = resolutions.filter((r) => r.status === "approved").length;
+
+  const publish = usePublishApproved();
 
   return (
     <Card className="overflow-hidden">
       <header className="flex items-baseline gap-2 border-b border-line bg-wash/60 px-5 py-3">
         <h2 className="font-custom text-[17px] tracking-[0.02em] text-ink">{committee.name}</h2>
         <span className="text-xs text-muted">{committee.code}</span>
+        <Button
+          className="ml-auto shrink-0"
+          disabled={publish.isPending || approvedCount === 0}
+          onClick={() => {
+            if (
+              window.confirm(
+                `Publish all ${approvedCount} approved resolution(s) in ${committee.name}? They become visible on the public site immediately.`,
+              )
+            )
+              publish.mutate(committee.id);
+          }}
+        >
+          {publish.isPending ? "Publishing…" : `Publish approved (${approvedCount})`}
+        </Button>
       </header>
+      {publish.error && (
+        <p className="border-b border-line px-5 py-2 text-xs text-[#b23b3b]">
+          {(publish.error as Error).message}
+        </p>
+      )}
 
       <div className="divide-y divide-line/70">
         {committee.topics.map((topic, i) => (

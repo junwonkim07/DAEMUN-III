@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   announcementCreateSchema,
@@ -173,13 +173,24 @@ export const adminRoutes = new Hono()
 
   /**
    * Bulk "approved -> published" (§6-1). Only rows still `approved` move;
-   * anything else (awaiting/review/already published) is left alone.
+   * anything else (awaiting/review/already published) is left alone. An
+   * optional `committeeId` scopes this to one committee — the 13:00
+   * cross-committee reveal uses the unscoped form, but the requirement also
+   * calls for publishing one committee at a time.
    */
   .post("/resolutions/publish-approved", async (c) => {
+    // Body is optional — the cross-committee "publish everything" call sends
+    // none at all, so this can't use zValidator (it chokes on an empty body).
+    const body = await c.req.json<{ committeeId?: string }>().catch(() => null);
+    const committeeId = body?.committeeId;
     const rows = await db
       .update(resolutions)
       .set({ status: "published" })
-      .where(eq(resolutions.status, "approved"))
+      .where(
+        committeeId
+          ? and(eq(resolutions.status, "approved"), eq(resolutions.committeeId, committeeId))
+          : eq(resolutions.status, "approved"),
+      )
       .returning({ id: resolutions.id });
     revalidateWeb();
     return c.json({ published: rows.length });
