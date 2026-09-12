@@ -1,6 +1,7 @@
 // Rolls the Hono app into one self-contained ES module for the Vercel
-// function entry (api/[[...route]].mjs). Run as `pnpm bundle`; vercel.json
-// uses it as the buildCommand. See the entry file for why bundling is needed.
+// function entry (api/index.mjs). Run as `pnpm bundle`, which scripts/
+// vercel-build.mjs (the buildCommand in vercel.json) calls after migrating.
+// See the entry file for why bundling is needed.
 import { rmSync } from "node:fs";
 import { build } from "esbuild";
 

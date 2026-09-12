@@ -30,9 +30,12 @@
  *   `"framework": null` in vercel.json keeps Vercel from also auto-building
  *   src/index.ts as a second function.
  *
- * - ../public/ is empty and exists only because the "Other" preset refuses to
- *   finish a deploy without a static output directory. Nothing is served
- *   from it.
+ * - vercel.json points outputDirectory at dist/public, which the build
+ *   creates with a single robots.txt (Disallow: /), because the "Other"
+ *   preset refuses to finish a deploy without a non-empty static output
+ *   directory. Static files are served ahead of the rewrite, so a real
+ *   public/ checked into the repo was bypassing Hono and its security
+ *   headers; robots.txt is the one path that is meant to.
  *
  * What deliberately does NOT happen here, compared with src/index.ts:
  *
