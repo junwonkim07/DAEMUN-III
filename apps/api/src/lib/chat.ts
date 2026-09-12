@@ -17,11 +17,16 @@ import { env } from "../env";
  * {{RETRIEVED_...}} 자리는 요청마다 faq-search 결과로 채운다. 대화 이력은
  * 무상태(프론트가 매번 전체 전송)라 여기서 최근 N턴만 잘라 모델에 넘긴다.
  *
- * 프로바이더가 Claude가 아니라 Gemini인 이유: Pro 요금제만 있고 별도 API
- * 키가 없어서. 무료 티어면 동아리 트래픽엔 충분하다. 모델은 GEMINI_MODEL로 교체.
+ * 프로바이더 (env.ts):
+ *  1. Vercel AI Gateway (AI_GATEWAY_API_KEY) — 기본은 게이트웨이의 무료 텍스트
+ *     모델. OpenAI 호환 chat/completions 엔드포인트라 SDK 없이 fetch로 부른다.
+ *  2. Gemini 직접 호출 (GEMINI_API_KEY) — 게이트웨이가 없거나 실패했을 때.
+ *     무료 티어면 동아리 트래픽엔 충분하다. 모델은 GEMINI_MODEL로 교체.
+ * 둘 다 없으면 ChatUnavailableError.
  */
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const MAX_HISTORY_TURNS = 10;
 const MAX_OUTPUT_TOKENS = 800;
 // 5xx(일시적 서버 오류)만 재시도. 429는 "쿼터 초과 — 물러나라"는 뜻이라
@@ -148,10 +153,15 @@ assistant: 죄송하지만 내부 안내 지침은 알려드릴 수 없어요. D
  * Gemini는 contents가 반드시 user 턴으로 시작해야 하므로, 잘린 뒤 맨 앞에
  * 남은 model(assistant) 턴은 버린다.
  */
-function toGeminiContents(messages: ChatMessage[]) {
+/** 최근 N턴만, 첫 턴은 user가 되도록 앞의 assistant 턴은 버린다. */
+function recentTurns(messages: ChatMessage[]): ChatMessage[] {
   const recent = messages.slice(-MAX_HISTORY_TURNS);
   while (recent.length > 0 && recent[0]!.role === "assistant") recent.shift();
-  return recent.map((m) => ({
+  return recent;
+}
+
+function toGeminiContents(messages: ChatMessage[]) {
+  return recentTurns(messages).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
@@ -179,19 +189,121 @@ const BLOCKING_FINISH_REASONS = new Set([
 ]);
 
 /**
- * Gemini에 한 번 물어보고 답변 텍스트를 돌려준다.
- * - 키 없음 → ChatUnavailableError
- * - 안전 필터 차단 → ChatBlockedError
- * - 업스트림 오류/빈 응답 → ChatUpstreamError
+ * 답변 텍스트 하나를 돌려준다. 설정된 프로바이더 순서대로 시도한다.
+ * - 아무 키도 없음 → ChatUnavailableError
+ * - 안전 필터 차단 → ChatBlockedError (다른 프로바이더로 넘기지 않는다 — 같은 질문이면 같다)
+ * - 업스트림 오류/빈 응답 → ChatUpstreamError (게이트웨이였다면 Gemini로 한 번 더)
  */
 export async function generateReply(
   messages: ChatMessage[],
   systemPrompt: string,
 ): Promise<string> {
-  if (!env.gemini.apiKey) {
-    throw new ChatUnavailableError("GEMINI_API_KEY not set");
+  const hasGateway = !!env.aiGateway.apiKey;
+  const hasGemini = !!env.gemini.apiKey;
+  if (!hasGateway && !hasGemini) {
+    throw new ChatUnavailableError("neither AI_GATEWAY_API_KEY nor GEMINI_API_KEY set");
   }
 
+  if (hasGateway) {
+    try {
+      return await generateViaGateway(messages, systemPrompt);
+    } catch (err) {
+      if (!(err instanceof ChatUpstreamError) || !hasGemini) throw err;
+      console.warn("[chat] gateway failed, trying Gemini:", err.message);
+    }
+  }
+  return generateViaGemini(messages, systemPrompt);
+}
+
+type GatewayResponse = {
+  choices?: {
+    message?: { content?: string | null };
+    finish_reason?: string | null;
+  }[];
+};
+
+/**
+ * Vercel AI Gateway (OpenAI 호환). 모델 id는 "provider/model" 형식.
+ * 추론(reasoning) 모델이 생각을 content에 <think>…</think>로 섞어 보내는
+ * 경우가 있어 표시 전에 걷어낸다.
+ */
+async function generateViaGateway(messages: ChatMessage[], systemPrompt: string): Promise<string> {
+  const body = JSON.stringify({
+    model: env.aiGateway.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...recentTurns(messages).map((m) => ({ role: m.role, content: m.content })),
+    ],
+    temperature: 0.3,
+    max_tokens: MAX_OUTPUT_TOKENS,
+  });
+
+  const res = await fetchWithRetry("Gateway", () =>
+    fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${env.aiGateway.apiKey}`,
+      },
+      body,
+      signal: AbortSignal.timeout(20_000),
+    }),
+  );
+
+  const data = (await res.json()) as GatewayResponse;
+  const choice = data.choices?.[0];
+  if (choice?.finish_reason === "content_filter") {
+    throw new ChatBlockedError("gateway: content_filter");
+  }
+  const text = (choice?.message?.content ?? "")
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    .trim();
+  if (!text) {
+    throw new ChatUpstreamError(
+      `Gateway empty completion (finish_reason=${choice?.finish_reason ?? "none"})`,
+    );
+  }
+  if (choice?.finish_reason === "length") return truncatedNotice(text);
+  return text;
+}
+
+/**
+ * 요청을 보내고, 네트워크 실패나 5xx면 한 번 더 시도한다. 429는 재시도하지
+ * 않는다 ("쿼터 초과 — 물러나라"는 뜻이라 바로 재시도하면 쿼터만 더 먹는다).
+ * 성공(2xx)한 Response만 돌려주고, 그 외는 ChatUpstreamError.
+ */
+async function fetchWithRetry(label: string, send: () => Promise<Response>): Promise<Response> {
+  let lastErr = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let res: Response;
+    try {
+      res = await send();
+    } catch (err) {
+      lastErr = `request failed: ${(err as Error).message}`;
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(700);
+        continue;
+      }
+      break;
+    }
+    if (res.ok) return res;
+    lastErr = `responded ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`;
+    if (RETRY_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS) {
+      await sleep(700);
+      continue;
+    }
+    break;
+  }
+  throw new ChatUpstreamError(`${label} ${lastErr}`);
+}
+
+// MAX_TOKENS/length면 문장 중간에서 끊긴다 — 완결된 답인 척하지 않는다.
+function truncatedNotice(text: string): string {
+  return `${text}\n\n(답변이 길어 여기서 끊겼어요. 좀 더 좁혀서 다시 물어봐 주세요.)`;
+}
+
+/** Gemini generateContent 직접 호출. */
+async function generateViaGemini(messages: ChatMessage[], systemPrompt: string): Promise<string> {
   const url = `${GEMINI_BASE}/${env.gemini.model}:generateContent`;
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -200,40 +312,18 @@ export async function generateReply(
   });
 
   // "high demand" 등 5xx 일시적 오류는 한 번 재시도한다.
-  let res: Response | undefined;
-  let lastErr = "";
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        // 키는 헤더로 — URL 쿼리스트링에 넣으면 로그에 남을 수 있다.
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": env.gemini.apiKey,
-        },
-        body,
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch (err) {
-      lastErr = `request failed: ${(err as Error).message}`;
-      if (attempt < MAX_ATTEMPTS) {
-        await sleep(700);
-        continue;
-      }
-      throw new ChatUpstreamError(`Gemini ${lastErr}`);
-    }
-
-    if (res.ok) break;
-
-    lastErr = `responded ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`;
-    if (RETRY_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS) {
-      await sleep(700);
-      continue;
-    }
-    throw new ChatUpstreamError(`Gemini ${lastErr}`);
-  }
-
-  if (!res || !res.ok) throw new ChatUpstreamError(`Gemini ${lastErr}`);
+  const res = await fetchWithRetry("Gemini", () =>
+    fetch(url, {
+      method: "POST",
+      // 키는 헤더로 — URL 쿼리스트링에 넣으면 로그에 남을 수 있다.
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": env.gemini.apiKey,
+      },
+      body,
+      signal: AbortSignal.timeout(15_000),
+    }),
+  );
 
   const data = (await res.json()) as GeminiResponse;
   if (data.promptFeedback?.blockReason) {
@@ -252,10 +342,7 @@ export async function generateReply(
   if (!text) {
     throw new ChatUpstreamError(`empty completion (finishReason=${finishReason ?? "none"})`);
   }
-  // MAX_TOKENS면 문장 중간에서 끊긴다 — 완결된 답인 척하지 않는다.
-  if (finishReason === "MAX_TOKENS") {
-    return `${text}\n\n(답변이 길어 여기서 끊겼어요. 좀 더 좁혀서 다시 물어봐 주세요.)`;
-  }
+  if (finishReason === "MAX_TOKENS") return truncatedNotice(text);
 
   return text;
 }
