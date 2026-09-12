@@ -14,6 +14,7 @@ import {
   departments,
   announcements,
   documents,
+  faqs,
   people,
   resolutions,
   scheduleDays,
@@ -28,9 +29,10 @@ import {
   ChatUpstreamError,
   generateReply,
 } from "../lib/chat";
+import { renderSiteContext } from "../lib/chat-context";
 import { logChat } from "../lib/chat-log";
 import { clientIp } from "../lib/client-ip";
-import { renderFaqContext, searchFaqs } from "../lib/faq-search";
+import { env } from "../env";
 import { rateLimit } from "../lib/rate-limit";
 
 type BuildOptions = {
@@ -172,7 +174,8 @@ export const publicRoutes = new Hono()
 
   /**
    * 안내 챗봇. 무상태 — 프론트가 messages 배열에 대화 전체를 담아 보낸다.
-   * 마지막 user 메시지로 공개 FAQ를 검색해 컨텍스트를 채우고 Gemini에 넘긴다.
+   * 공개 사이트 데이터 전체 + 공개 FAQ를 컨텍스트로 넣고 모델에 넘긴다
+   * (lib/chat-context.ts — 검색 없이 통째로, 이유는 그 파일 주석).
    * 개인정보 DB(신청서 등)는 절대 참조하지 않는다 (설계안 §3-3).
    */
   .post(
@@ -200,18 +203,29 @@ export const publicRoutes = new Hono()
       }
       const lastUser = messages[messages.length - 1]!.content;
 
-      const [hits, [confRow]] = await Promise.all([
-        searchFaqs(lastUser, 5),
-        db.select().from(conference).where(eq(conference.id, "main")).limit(1),
+      const [site, faqRows] = await Promise.all([
+        buildSiteData({ publicView: true }),
+        db
+          .select({ question: faqs.question, answer: faqs.answer, category: faqs.category })
+          .from(faqs)
+          .where(eq(faqs.published, true))
+          .orderBy(asc(faqs.sortOrder)),
       ]);
+      // chat_logs.faqHits — 컨텍스트에 들어간 FAQ 수. 사이트 데이터는 항상
+      // 들어가므로 0이어도 "근거 없음"이 아니라 "운영진 FAQ가 아직 없음"이다.
+      const hits = faqRows;
 
+      const conf = site.conference;
       const contact = {
-        email: confRow?.email && confRow.email !== "TBA" ? confRow.email : "운영진 이메일",
-        instagram: confRow?.instagram ?? "@daemun_official",
-        instagramUrl: confRow?.instagramUrl ?? "#",
+        email: conf.email && conf.email !== "TBA" ? conf.email : "운영진 이메일",
+        instagram: conf.instagram || "@daemun_official",
+        instagramUrl: conf.instagramUrl || "#",
       };
 
-      const systemPrompt = buildSystemPrompt(renderFaqContext(hits), contact);
+      const systemPrompt = buildSystemPrompt(
+        renderSiteContext(site, faqRows, env.webPublicUrl),
+        contact,
+      );
 
       try {
         const reply = await generateReply(messages, systemPrompt);
