@@ -182,7 +182,12 @@ export const delegateRoutes = new Hono<AuthEnv>()
       }
     } else {
       const body = await c.req.json<{ url?: string }>().catch(() => null);
-      if (!body?.url) return c.json({ error: "Expected a JSON `url` field" }, 400);
+      // Only a URL minted by this store may be finalized. Without this check a
+      // team lead could record an arbitrary external (or javascript:) href as
+      // the team's draft, which admins then open as a link.
+      if (!body?.url || typeof body.url !== "string" || !storage.keyOf(body.url)) {
+        return c.json({ error: "Expected a JSON `url` field pointing at this upload store" }, 400);
+      }
       url = body.url;
     }
 
