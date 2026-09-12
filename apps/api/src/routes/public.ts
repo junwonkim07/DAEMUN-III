@@ -14,6 +14,7 @@ import {
   departments,
   announcements,
   documents,
+  faqs,
   people,
   resolutions,
   scheduleDays,
@@ -28,9 +29,10 @@ import {
   ChatUpstreamError,
   generateReply,
 } from "../lib/chat";
+import { countRelevantFaqs, renderSiteContext, type ChatFaq } from "../lib/chat-context";
 import { logChat } from "../lib/chat-log";
 import { clientIp } from "../lib/client-ip";
-import { renderFaqContext, searchFaqs } from "../lib/faq-search";
+import { env } from "../env";
 import { rateLimit } from "../lib/rate-limit";
 
 type BuildOptions = {
@@ -42,6 +44,45 @@ type BuildOptions = {
    */
   publicView?: boolean;
 };
+
+/**
+ * 챗봇 <context>는 요청마다 사이트 전체를 다시 조회·렌더링하면 대화 한 턴에
+ * DB 쿼리가 9개씩 나간다. 내용은 초 단위로 바뀌지 않으니 인스턴스 안에서 잠깐
+ * 재사용한다. (서버리스라 인스턴스마다 따로, 그리고 TTL 뒤에는 관리자 수정이
+ * 그대로 반영된다.)
+ */
+const CHAT_CONTEXT_TTL_MS = 20_000;
+type ChatContact = { email: string; instagram: string; instagramUrl: string };
+type ChatContext = { at: number; context: string; faqs: ChatFaq[]; contact: ChatContact };
+let chatContextCache: ChatContext | null = null;
+
+async function loadChatContext(): Promise<ChatContext> {
+  const now = Date.now();
+  if (chatContextCache && now - chatContextCache.at < CHAT_CONTEXT_TTL_MS) {
+    return chatContextCache;
+  }
+  const [site, faqRows] = await Promise.all([
+    buildSiteData({ publicView: true }),
+    db
+      .select({ question: faqs.question, answer: faqs.answer, category: faqs.category })
+      .from(faqs)
+      .where(eq(faqs.published, true))
+      .orderBy(asc(faqs.sortOrder), asc(faqs.createdAt)),
+  ]);
+  const conf = site.conference;
+  const contact = {
+    email: conf.email && conf.email !== "TBA" ? conf.email : "운영진 이메일",
+    instagram: conf.instagram && conf.instagram !== "TBA" ? conf.instagram : "공식 인스타그램",
+    instagramUrl: conf.instagramUrl || "#",
+  };
+  chatContextCache = {
+    at: now,
+    context: renderSiteContext(site, faqRows, env.webPublicUrl),
+    faqs: faqRows,
+    contact,
+  };
+  return chatContextCache;
+}
 
 /** Assemble the single payload the public site renders from. */
 export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> {
@@ -172,7 +213,8 @@ export const publicRoutes = new Hono()
 
   /**
    * 안내 챗봇. 무상태 — 프론트가 messages 배열에 대화 전체를 담아 보낸다.
-   * 마지막 user 메시지로 공개 FAQ를 검색해 컨텍스트를 채우고 Gemini에 넘긴다.
+   * 공개 사이트 데이터 전체 + 공개 FAQ를 컨텍스트로 넣고 모델에 넘긴다
+   * (lib/chat-context.ts — 검색 없이 통째로, 이유는 그 파일 주석).
    * 개인정보 DB(신청서 등)는 절대 참조하지 않는다 (설계안 §3-3).
    */
   .post(
@@ -200,34 +242,29 @@ export const publicRoutes = new Hono()
       }
       const lastUser = messages[messages.length - 1]!.content;
 
-      const [hits, [confRow]] = await Promise.all([
-        searchFaqs(lastUser, 5),
-        db.select().from(conference).where(eq(conference.id, "main")).limit(1),
-      ]);
+      const { context, faqs: faqRows, contact } = await loadChatContext();
+      // chat_logs.faqHits — 이 질문과 겹치는 FAQ 수 (컨텍스트에는 FAQ 전부가
+      // 들어가므로 답변과는 무관). 어드민 Chat logs가 0인 것을 "겹치는 FAQ가
+      // 없는 질문"으로 표시하는 데 쓴다 — 옛 검색 기반 의미를 그대로 유지.
+      const faqHits = countRelevantFaqs(lastUser, faqRows);
 
-      const contact = {
-        email: confRow?.email && confRow.email !== "TBA" ? confRow.email : "운영진 이메일",
-        instagram: confRow?.instagram ?? "@daemun_official",
-        instagramUrl: confRow?.instagramUrl ?? "#",
-      };
-
-      const systemPrompt = buildSystemPrompt(renderFaqContext(hits), contact);
+      const systemPrompt = buildSystemPrompt(context, contact);
 
       try {
         const reply = await generateReply(messages, systemPrompt);
-        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits: hits.length });
+        logChat({ question: lastUser, answer: reply, outcome: "answered", faqHits });
         return c.json({ reply });
       } catch (err) {
         if (err instanceof ChatUnavailableError) {
           const reply = "안내 챗봇이 아직 설정되지 않았어요. 운영진에게 문의해주세요.";
-          logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits: hits.length });
+          logChat({ question: lastUser, answer: reply, outcome: "unavailable", faqHits });
           return c.json({ reply }, 503);
         }
         if (err instanceof ChatBlockedError) {
           console.warn("[chat] blocked:", err.message);
           const reply =
             "그 질문에는 답변을 드리기 어려워요. 동아리 소개나 신청 절차, 일정 같은 걸 물어봐 주세요.";
-          logChat({ question: lastUser, answer: reply, outcome: "blocked", faqHits: hits.length });
+          logChat({ question: lastUser, answer: reply, outcome: "blocked", faqHits });
           // 서버 잘못이 아니라 모델이 거절한 것 — 위젯이 오류로 처리하지 않게 200.
           return c.json({ reply }, 200);
         }
@@ -237,7 +274,7 @@ export const publicRoutes = new Hono()
             question: lastUser,
             answer: CHAT_FALLBACK,
             outcome: "error",
-            faqHits: hits.length,
+            faqHits,
           });
           return c.json({ reply: CHAT_FALLBACK }, 502);
         }
