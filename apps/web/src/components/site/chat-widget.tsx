@@ -25,7 +25,6 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Loader } from "@/components/ai-elements/loader";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import {
   PromptInput,
@@ -48,7 +47,13 @@ const nanumGothic = Nanum_Gothic({
  * `local`은 이 컴포넌트가 만든 말풍선(첫 인사, 오류 안내)이라는 표시다.
  * 서버로 다시 보내지 않는다 — 모델이 자기 이전 답변으로 오인하면 안 된다.
  */
-type Msg = { role: "user" | "assistant"; content: string; local?: boolean };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  local?: boolean;
+  /** 아직 토큰이 들어오는 중 — 끝에 커서를 붙여 보여준다. */
+  streaming?: boolean;
+};
 
 /** 서버(chatRequestSchema)는 40개까지 받고 10턴만 쓴다 — 넉넉히 20으로 자른다. */
 const MAX_HISTORY = 20;
@@ -74,7 +79,7 @@ const OPENING: Msg = {
   role: "assistant",
   local: true,
   content:
-    "안녕하세요, DAEMUN 안내 챗봇 Roger예요.\n\n일정이나 위원회, 신청 방법처럼 궁금한 게 있으면 편하게 물어보세요. 자동응답이라 답이 애매하면 인스타그램이나 이메일로 문의 주셔도 돼요.",
+    "안녕하세요! DAEMUN 안내 챗봇 Roger예요. 실시간 상담이 아니라 자동응답이에요. 동아리 소개, 신청 방법, 활동 일정 등 궁금하신 점을 편하게 물어보세요.",
 };
 
 const NETWORK_ERROR = "연결에 문제가 있어요. 잠시 후 다시 시도해주세요.";
@@ -176,25 +181,89 @@ export function ChatWidget() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ messages: payload }),
       });
-      const data = (await res.json().catch(() => null)) as { reply?: string } | null;
-      // 서버가 준 answer만 모델의 실제 답변으로 취급한다. 우리 쪽 안내 문구나
-      // 오류 응답(429·502·503의 reply 포함)은 local이라 다음 요청에 안 실린다.
-      const served = res.ok && typeof data?.reply === "string";
-      setMessages((m) => [
-        ...m,
-        served
-          ? { role: "assistant", content: data!.reply as string }
-          : {
-              role: "assistant",
-              local: true,
-              content:
-                typeof data?.reply === "string"
-                  ? data.reply
-                  : res.ok
-                    ? "답변을 받지 못했어요. 잠시 후 다시 시도해주세요."
-                    : NETWORK_ERROR,
-            },
-      ]);
+      // 성공하면 SSE 스트림, 실패하면 JSON — content-type으로 가른다.
+      // 서버가 스트림으로 준 것만 모델의 실제 답변으로 취급한다. 우리 쪽 안내
+      // 문구나 오류 응답(429·502·503의 reply 포함)은 local이라 다음 요청에 안 실린다.
+      const streamed =
+        res.ok && (res.headers.get("content-type") ?? "").includes("text/event-stream") && res.body;
+
+      if (!streamed) {
+        const data = (await res.json().catch(() => null)) as { reply?: string } | null;
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            local: true,
+            content:
+              typeof data?.reply === "string"
+                ? data.reply
+                : res.ok
+                  ? "답변을 받지 못했어요. 잠시 후 다시 시도해주세요."
+                  : NETWORK_ERROR,
+          },
+        ]);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let opened = false;
+      let buf = "";
+      let ended = false;
+      for (; !ended; ) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+
+        // `data: <JSON 문자열>` 줄만 꺼낸다. 청크 경계에서 잘린 줄은 남겨 둔다.
+        let nl = buf.indexOf("\n");
+        const pieces: string[] = [];
+        while (nl !== -1) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          nl = buf.indexOf("\n");
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (payload === "[DONE]") {
+            ended = true;
+            break;
+          }
+          try {
+            const text = JSON.parse(payload) as unknown;
+            if (typeof text === "string" && text) pieces.push(text);
+          } catch {
+            // 규격 밖 줄 — 무시한다.
+          }
+        }
+
+        const piece = pieces.join("");
+        if (!piece) continue;
+        if (!opened) {
+          // 첫 조각이 왔을 때 비로소 말풍선을 만든다 — 그 전까지는 로딩 표시.
+          opened = true;
+          setLoading(false);
+          setMessages((m) => [...m, { role: "assistant", content: piece, streaming: true }]);
+          continue;
+        }
+        setMessages((m) =>
+          m.map((msg, i) =>
+            i === m.length - 1 ? { ...msg, content: msg.content + piece } : msg,
+          ),
+        );
+      }
+      setMessages((m) =>
+        m.map((msg, i) => (i === m.length - 1 && msg.streaming ? { ...msg, streaming: false } : msg)),
+      );
+      if (!opened) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            local: true,
+            content: "답변을 받지 못했어요. 잠시 후 다시 시도해주세요.",
+          },
+        ]);
+      }
     } catch {
       setMessages((m) => [...m, { role: "assistant", local: true, content: NETWORK_ERROR }]);
     } finally {
@@ -254,7 +323,7 @@ export function ChatWidget() {
           >
             <header className="flex shrink-0 items-start justify-between gap-2 px-4 pb-3 pt-3.5 text-white">
               <div>
-                <p className="font-custom text-lg leading-none">Roger</p>
+                <p className="text-base font-bold leading-none tracking-tight">Roger</p>
                 <p className="mt-1 text-xs text-white/70">DAEMUN 안내 챗봇 · 자동응답</p>
               </div>
               <button
@@ -286,7 +355,9 @@ export function ChatWidget() {
                         )}
                       >
                         {m.role === "assistant" ? (
-                          <MessageResponse>{m.content}</MessageResponse>
+                          <MessageResponse>
+                            {m.streaming ? `${m.content}\u2588` : m.content}
+                          </MessageResponse>
                         ) : (
                           <span className="whitespace-pre-wrap">{m.content}</span>
                         )}
@@ -295,9 +366,12 @@ export function ChatWidget() {
                   ))}
                   {loading && (
                     <Message from="assistant" className="max-w-[88%]">
-                      <MessageContent className="flex-row items-center gap-2 rounded-2xl rounded-bl-md bg-wash px-3.5 py-2.5 text-xs text-faint">
-                        <Loader size={14} />
-                        답변을 준비하고 있어요
+                      <MessageContent className="flex-row items-center px-1 py-1.5">
+                        <span className="sr-only">답변을 준비하고 있어요</span>
+                        <span
+                          aria-hidden="true"
+                          className="size-2.5 animate-chat-think rounded-full bg-ink"
+                        />
                       </MessageContent>
                     </Message>
                   )}
