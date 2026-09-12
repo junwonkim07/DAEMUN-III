@@ -15,6 +15,16 @@ if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
 }
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
+// Static assets referenced by DB rows (people.photo, committees.image,
+// documents.file) that predate the upload pipeline — the original seed data
+// ships these as site-relative paths (`/profiles/*.jpg`, `/committees/*.jpg`,
+// `/docs/*`) served from apps/web/public. They resolve fine on the public
+// site (same origin) but 404 in this app unless proxied here too. Optional
+// on purpose (no build-time throw like API_URL above): until WEB_URL is set
+// in this app's env, these just keep 404ing exactly as before — the photo
+// components fall back to a placeholder rather than a broken-image icon.
+const WEB_URL = process.env.WEB_URL ?? "http://localhost:3000";
+
 const nextConfig: NextConfig = {
   // 자체 호스팅(장수 `node server.js`) 전용. Vercel에선 건너뛴다 — 그쪽 빌더가
   // 자체 트레이싱을 하는데 워크스페이스의 standalone 출력에서 실패한다.
@@ -26,6 +36,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/api/:path*", destination: `${API_URL}/api/:path*` },
       { source: "/uploads/:path*", destination: `${API_URL}/uploads/:path*` },
+      { source: "/profiles/:path*", destination: `${WEB_URL}/profiles/:path*` },
+      { source: "/committees/:path*", destination: `${WEB_URL}/committees/:path*` },
+      { source: "/docs/:path*", destination: `${WEB_URL}/docs/:path*` },
     ];
   },
 };

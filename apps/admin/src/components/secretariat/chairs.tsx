@@ -179,6 +179,8 @@ function ChairPhoto({ person }: { person: Person }) {
   const update = peopleHooks.useUpdate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const photoOk = person.photo && person.photo !== failedUrl;
   const busy = upload.isPending || update.isPending;
 
   function pick(file: File | undefined) {
@@ -198,9 +200,14 @@ function ChairPhoto({ person }: { person: Person }) {
   return (
     <div className="w-14 shrink-0">
       <div className="relative aspect-square overflow-hidden rounded border border-line bg-wash">
-        {person.photo ? (
+        {photoOk ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={person.photo} alt="" className="h-full w-full object-cover" />
+          <img
+            src={person.photo!}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setFailedUrl(person.photo)}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-[9px] text-faint">
             No photo
