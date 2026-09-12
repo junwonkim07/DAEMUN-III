@@ -54,12 +54,19 @@ export const teamHooks = {
   },
 };
 
-/** approved -> published for every resolution still sitting at "approved". */
+/**
+ * approved -> published for every resolution still sitting at "approved" —
+ * or, with `committeeId`, just that committee's (the 13:00 cross-committee
+ * reveal uses the unscoped form; this also backs a per-committee button).
+ */
 export function usePublishApproved() {
   const invalidate = useInvalidateSite();
   return useMutation({
-    mutationFn: () =>
-      adminFetch<{ published: number }>("/resolutions/publish-approved", { method: "POST" }),
+    mutationFn: (committeeId?: string) =>
+      adminFetch<{ published: number }>("/resolutions/publish-approved", {
+        method: "POST",
+        json: committeeId ? { committeeId } : undefined,
+      }),
     onSuccess: invalidate,
   });
 }
