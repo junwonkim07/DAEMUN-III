@@ -116,7 +116,14 @@ function TopicRow({
 
       <div className="flex items-baseline gap-3 text-[14px] text-body">
         <CellLabel>Submitter</CellLabel>
-        {entry ? <TBA value={entry.submitter} /> : <span className="text-faint">&mdash;</span>}
+        {/* A row can exist with no submitter yet — one the secretariat added
+            to hold a topic's slot before any team uploaded. Show the dash
+            rather than an empty cell. */}
+        {entry?.submitter ? (
+          <TBA value={entry.submitter} />
+        ) : (
+          <span className="text-faint">&mdash;</span>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

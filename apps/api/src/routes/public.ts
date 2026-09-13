@@ -145,15 +145,19 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
   const resolutionsBySlug: Record<string, SiteData["resolutions"][string]> = {};
   for (const c of committeeRows) resolutionsBySlug[c.slug] = [];
   for (const r of resolutionRows) {
-    // §6-1: pre-publish, a resolution is entirely private (admin/team only) —
-    // not just its document. The admin preview (publicView: false) still
-    // sees every status so review can happen before anything goes public.
-    if (opts.publicView && r.status !== "published") continue;
     const slug = slugById.get(r.committeeId);
     if (!slug) continue;
     const { createdAt: _c, ...rest } = r;
+    // The public Approval Panel lists every status, not just published ones:
+    // who submitted what, and where it stands, is the thing delegates come to
+    // that page for. What stays private until `published` is the draft FILE —
+    // an unapproved manuscript reachable from the public JSON would be read
+    // long before the 13:00 reveal, which is what §6-1 was protecting. The
+    // admin preview (publicView: false) keeps seeing everything.
+    const hideDocument = opts.publicView && r.status !== "published";
     resolutionsBySlug[slug]!.push({
       ...rest,
+      document: hideDocument ? null : r.document,
       updatedAt: r.updatedAt.toISOString(),
     });
   }
