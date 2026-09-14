@@ -145,9 +145,18 @@ export function CommitteeTabs({ committees }: { committees: Committee[] }) {
                           <span className="text-[11px] tracking-[0.05em] text-faint">PDF</span>
                         </span>
                       </div>
+                      {/*
+                        download + target 둘 다 준다. `download`만 있으면 그 속성을
+                        무시하거나 막는 환경(iOS Safari, 다운로드가 차단된 관리
+                        프로필 등)에서 클릭해도 아무 일이 안 일어난다 — 그 경우
+                        새 탭에서 PDF가 열려 최소한 읽고 저장할 수는 있게.
+                      */}
                       <a
                         href={topic.report}
                         download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${topic.title} 의장 보고서 PDF 내려받기`}
                         className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-brand/35 px-4 text-[12px] font-medium uppercase tracking-[0.1em] text-brand transition-colors hover:border-brand hover:bg-brand hover:text-white"
                       >
                         <Download className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
