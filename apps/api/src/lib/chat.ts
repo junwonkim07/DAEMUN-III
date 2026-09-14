@@ -4,6 +4,10 @@ import { env } from "../env";
 /**
  * 안내 챗봇 "Roger" — Gemini 호출부와 시스템 프롬프트.
  *
+ * 응답은 토큰 단위로 스트리밍한다 — startReply()가 업스트림 연결과 첫 조각까지
+ * 확인한 뒤 비동기 이터러블을 돌려주므로, 연결 실패·차단 같은 오류는 라우트가
+ * 200 스트림을 열기 전에 예외로 드러난다.
+ *
  * 답변 범위는 세 갈래다:
  *  - DAEMUN에 대한 사실(일정·신청·의제·연락처 등) → 오직 <context>에만 근거.
  *    <context>는 공개 사이트 데이터 전체 + 운영진 FAQ (lib/chat-context.ts).
@@ -35,6 +39,9 @@ const MAX_OUTPUT_TOKENS = 800;
 // 바로 재시도하면 쿼터만 더 먹는다.
 const RETRY_STATUSES = new Set([500, 502, 503, 504]);
 const MAX_ATTEMPTS = 2;
+// 스트리밍은 첫 바이트가 아니라 전체 읽기에 걸리는 상한이다. max_tokens가
+// 800이라 정상 응답은 한참 안쪽에서 끝난다.
+const STREAM_TIMEOUT_MS = 30_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -212,10 +219,22 @@ const BLOCKING_FINISH_REASONS = new Set([
  * - 안전 필터 차단 → ChatBlockedError (다른 프로바이더로 넘기지 않는다 — 같은 질문이면 같다)
  * - 업스트림 오류/빈 응답 → ChatUpstreamError (게이트웨이였다면 Gemini로 한 번 더)
  */
-export async function generateReply(
+/** MAX_TOKENS로 잘렸을 때 덧붙이는 안내 — 완결된 답인 척하지 않는다. */
+const TRUNCATED_SUFFIX = "\n\n(답변이 길어 여기서 끊겼어요. 좀 더 좁혀서 다시 물어봐 주세요.)";
+
+/**
+ * 답변을 조각 단위로 내보내는 이터러블을 만든다. 설정된 프로바이더 순서대로 시도.
+ * - 아무 키도 없음 → ChatUnavailableError
+ * - 안전 필터 차단 → ChatBlockedError (다른 프로바이더로 넘기지 않는다 — 같은 질문이면 같다)
+ * - 연결 실패·빈 응답 → ChatUpstreamError (게이트웨이였다면 Gemini로 한 번 더)
+ *
+ * 첫 조각까지 미리 받아 두므로 위 오류는 전부 이 함수에서 던져진다. 반환된 뒤
+ * (= 스트림이 시작된 뒤) 끊기면 받은 데까지만 남고 조용히 끝난다.
+ */
+export async function startReply(
   messages: ChatMessage[],
   systemPrompt: string,
-): Promise<string> {
+): Promise<AsyncIterable<string>> {
   const hasGateway = !!env.aiGateway.apiKey;
   const hasGemini = !!env.gemini.apiKey;
   if (!hasGateway && !hasGemini) {
@@ -224,28 +243,24 @@ export async function generateReply(
 
   if (hasGateway) {
     try {
-      return await generateViaGateway(messages, systemPrompt);
+      return await startViaGateway(messages, systemPrompt);
     } catch (err) {
       if (!(err instanceof ChatUpstreamError) || !hasGemini) throw err;
       console.warn("[chat] gateway failed, trying Gemini:", err.message);
     }
   }
-  return generateViaGemini(messages, systemPrompt);
+  return startViaGemini(messages, systemPrompt);
 }
 
-type GatewayResponse = {
-  choices?: {
-    message?: { content?: string | null };
-    finish_reason?: string | null;
-  }[];
+type GatewayStreamEvent = {
+  choices?: { delta?: { content?: string | null }; finish_reason?: string | null }[];
 };
 
-/**
- * Vercel AI Gateway (OpenAI 호환). 모델 id는 "provider/model" 형식.
- * 추론(reasoning) 모델이 생각을 content에 <think>…</think>로 섞어 보내는
- * 경우가 있어 표시 전에 걷어낸다.
- */
-async function generateViaGateway(messages: ChatMessage[], systemPrompt: string): Promise<string> {
+/** Vercel AI Gateway (OpenAI 호환 SSE). 모델 id는 "provider/model" 형식. */
+async function startViaGateway(
+  messages: ChatMessage[],
+  systemPrompt: string,
+): Promise<AsyncIterable<string>> {
   const body = JSON.stringify({
     model: env.aiGateway.model,
     messages: [
@@ -254,6 +269,7 @@ async function generateViaGateway(messages: ChatMessage[], systemPrompt: string)
     ],
     temperature: 0.3,
     max_tokens: MAX_OUTPUT_TOKENS,
+    stream: true,
   });
 
   const res = await fetchWithRetry("Gateway", () =>
@@ -261,28 +277,210 @@ async function generateViaGateway(messages: ChatMessage[], systemPrompt: string)
       method: "POST",
       headers: {
         "content-type": "application/json",
+        accept: "text/event-stream",
         authorization: `Bearer ${env.aiGateway.apiKey}`,
       },
       body,
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     }),
   );
 
-  const data = (await res.json()) as GatewayResponse;
-  const choice = data.choices?.[0];
-  if (choice?.finish_reason === "content_filter") {
-    throw new ChatBlockedError("gateway: content_filter");
+  return prime(
+    deltas("Gateway", res, (ev) => {
+      const choice = (ev as GatewayStreamEvent).choices?.[0];
+      return { text: choice?.delta?.content ?? "", finish: choice?.finish_reason ?? null };
+    }),
+  );
+}
+
+/** Gemini streamGenerateContent (alt=sse). */
+async function startViaGemini(
+  messages: ChatMessage[],
+  systemPrompt: string,
+): Promise<AsyncIterable<string>> {
+  const url = `${GEMINI_BASE}/${env.gemini.model}:streamGenerateContent?alt=sse`;
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: toGeminiContents(messages),
+    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+  });
+
+  // "high demand" 등 5xx 일시적 오류는 한 번 재시도한다.
+  const res = await fetchWithRetry("Gemini", () =>
+    fetch(url, {
+      method: "POST",
+      // 키는 헤더로 — URL 쿼리스트링에 넣으면 로그에 남을 수 있다.
+      headers: {
+        "content-type": "application/json",
+        accept: "text/event-stream",
+        "x-goog-api-key": env.gemini.apiKey,
+      },
+      body,
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
+    }),
+  );
+
+  return prime(
+    deltas("Gemini", res, (ev) => {
+      const d = ev as GeminiResponse;
+      if (d.promptFeedback?.blockReason) {
+        throw new ChatBlockedError(`prompt blocked: ${d.promptFeedback.blockReason}`);
+      }
+      const cand = d.candidates?.[0];
+      const text =
+        cand?.content?.parts
+          ?.filter((part) => !part.thought)
+          .map((part) => part.text ?? "")
+          .join("") ?? "";
+      return { text, finish: cand?.finishReason ?? null };
+    }),
+  );
+}
+
+/** 프로바이더별 SSE 이벤트 하나에서 뽑아낸 것. */
+type Delta = { text: string; finish: string | null };
+
+/**
+ * SSE 이벤트를 화면에 쓸 텍스트 조각으로. 빈 조각은 내보내지 않는다 — prime()이
+ * "첫 조각"으로 오해하면 안 되기 때문. 아무것도 못 내보내고 끝나면 업스트림 오류.
+ */
+async function* deltas(
+  label: string,
+  res: Response,
+  parse: (ev: unknown) => Delta,
+): AsyncGenerator<string> {
+  const think = makeThinkFilter();
+  let finish: string | null = null;
+  let started = false;
+
+  for await (const ev of sseEvents(res)) {
+    const { text, finish: f } = parse(ev);
+    if (f) finish = f;
+    // 차단은 내용이 나오기 전에만 오류로 올린다. 이미 보낸 뒤면 거기서 끝낸다.
+    if (finish && BLOCKING_FINISH_REASONS.has(finish)) {
+      if (started) break;
+      throw new ChatBlockedError(`${label} candidate blocked: ${finish}`);
+    }
+    if (finish === "content_filter") {
+      if (started) break;
+      throw new ChatBlockedError(`${label}: content_filter`);
+    }
+    let piece = think.push(text);
+    if (!started) piece = piece.replace(/^\s+/, "");
+    if (piece) {
+      started = true;
+      yield piece;
+    }
   }
-  const text = (choice?.message?.content ?? "")
-    .replace(/<think>[\s\S]*?<\/think>/g, "")
-    .trim();
-  if (!text) {
-    throw new ChatUpstreamError(
-      `Gateway empty completion (finish_reason=${choice?.finish_reason ?? "none"})`,
-    );
+
+  const rest = think.flush();
+  if (rest.trim()) {
+    started = true;
+    yield rest;
   }
-  if (choice?.finish_reason === "length") return truncatedNotice(text);
-  return text;
+  if (!started) {
+    throw new ChatUpstreamError(`${label} empty completion (finish=${finish ?? "none"})`);
+  }
+  if (finish === "length" || finish === "MAX_TOKENS") yield TRUNCATED_SUFFIX;
+}
+
+/**
+ * 첫 조각을 미리 받아 둔다. 업스트림 오류·차단·빈 응답이 여기서 예외로 드러나므로
+ * 라우트는 200 스트림을 열기 전에 평소의 오류 응답으로 되돌아갈 수 있다.
+ */
+async function prime(gen: AsyncGenerator<string>): Promise<AsyncIterable<string>> {
+  const first = await gen.next();
+  if (first.done) throw new ChatUpstreamError("empty stream");
+  return {
+    async *[Symbol.asyncIterator]() {
+      yield first.value;
+      yield* gen;
+    },
+  };
+}
+
+/** `data: {...}` 줄만 골라 JSON으로. 청크 경계에서 줄이 잘려도 이어 붙인다. */
+async function* sseEvents(res: Response): AsyncGenerator<unknown> {
+  const reader = res.body?.getReader();
+  if (!reader) return;
+  const decoder = new TextDecoder();
+  let buf = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl = buf.indexOf("\n");
+      while (nl !== -1) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        nl = buf.indexOf("\n");
+        if (!line.startsWith("data:")) continue; // 빈 줄·주석(:)·event: 등
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") return;
+        try {
+          yield JSON.parse(payload);
+        } catch {
+          // keep-alive나 규격 밖 줄 — 무시한다.
+        }
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+/**
+ * 추론 모델이 content에 섞어 보내는 <think>…</think>를 걷어낸다. 태그가 청크
+ * 경계에 걸릴 수 있어, 태그 앞부분이 될 수 있는 꼬리는 다음 청크까지 붙잡아 둔다.
+ */
+function makeThinkFilter() {
+  const OPEN = "<think>";
+  const CLOSE = "</think>";
+  let inside = false;
+  let hold = "";
+
+  return {
+    push(chunk: string): string {
+      if (!chunk) return "";
+      hold += chunk;
+      let out = "";
+      for (;;) {
+        if (inside) {
+          const end = hold.indexOf(CLOSE);
+          if (end === -1) {
+            const lt = hold.lastIndexOf("<");
+            hold = lt !== -1 && CLOSE.startsWith(hold.slice(lt)) ? hold.slice(lt) : "";
+            return out;
+          }
+          hold = hold.slice(end + CLOSE.length);
+          inside = false;
+          continue;
+        }
+        const start = hold.indexOf(OPEN);
+        if (start === -1) {
+          const lt = hold.lastIndexOf("<");
+          if (lt !== -1 && OPEN.startsWith(hold.slice(lt))) {
+            out += hold.slice(0, lt);
+            hold = hold.slice(lt);
+          } else {
+            out += hold;
+            hold = "";
+          }
+          return out;
+        }
+        out += hold.slice(0, start);
+        hold = hold.slice(start + OPEN.length);
+        inside = true;
+      }
+    },
+    /** 스트림이 끝났을 때 붙잡고 있던 나머지. 열린 채 끝난 think는 버린다. */
+    flush(): string {
+      const rest = inside ? "" : hold;
+      hold = "";
+      return rest;
+    },
+  };
 }
 
 /**
@@ -313,54 +511,4 @@ async function fetchWithRetry(label: string, send: () => Promise<Response>): Pro
     break;
   }
   throw new ChatUpstreamError(`${label} ${lastErr}`);
-}
-
-// MAX_TOKENS/length면 문장 중간에서 끊긴다 — 완결된 답인 척하지 않는다.
-function truncatedNotice(text: string): string {
-  return `${text}\n\n(답변이 길어 여기서 끊겼어요. 좀 더 좁혀서 다시 물어봐 주세요.)`;
-}
-
-/** Gemini generateContent 직접 호출. */
-async function generateViaGemini(messages: ChatMessage[], systemPrompt: string): Promise<string> {
-  const url = `${GEMINI_BASE}/${env.gemini.model}:generateContent`;
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents: toGeminiContents(messages),
-    generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
-  });
-
-  // "high demand" 등 5xx 일시적 오류는 한 번 재시도한다.
-  const res = await fetchWithRetry("Gemini", () =>
-    fetch(url, {
-      method: "POST",
-      // 키는 헤더로 — URL 쿼리스트링에 넣으면 로그에 남을 수 있다.
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": env.gemini.apiKey,
-      },
-      body,
-      signal: AbortSignal.timeout(15_000),
-    }),
-  );
-
-  const data = (await res.json()) as GeminiResponse;
-  if (data.promptFeedback?.blockReason) {
-    throw new ChatBlockedError(`prompt blocked: ${data.promptFeedback.blockReason}`);
-  }
-  const finishReason = data.candidates?.[0]?.finishReason;
-  if (finishReason && BLOCKING_FINISH_REASONS.has(finishReason)) {
-    throw new ChatBlockedError(`candidate blocked: ${finishReason}`);
-  }
-  // 3.x 모델은 사고(thought) 파트를 함께 내려줄 수 있다 — 표시용 텍스트만.
-  const text = data.candidates?.[0]?.content?.parts
-    ?.filter((p) => !p.thought)
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
-  if (!text) {
-    throw new ChatUpstreamError(`empty completion (finishReason=${finishReason ?? "none"})`);
-  }
-  if (finishReason === "MAX_TOKENS") return truncatedNotice(text);
-
-  return text;
 }

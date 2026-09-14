@@ -84,3 +84,25 @@ body {
 [data-chat-widget] *::after {
   border-color: var(--color-line);
 }
+
+/* 챗봇 로딩 표시 — 답이 오기 전까지 숨 쉬듯 깜빡이는 점 하나. */
+@keyframes chat-think {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+.animate-chat-think {
+  animation: chat-think 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-chat-think {
+    animation: none;
+    opacity: 0.5;
+  }
+}
