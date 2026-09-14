@@ -279,7 +279,10 @@ export function ChatWidget() {
   return (
     <div
       data-chat-widget
-      className={cn("fixed bottom-5 right-5 z-[60]", nanumGothic.className)}
+      // 루트는 패널이 펼쳐질 자리를 미리 잡아 두는 빈 상자다. 클릭을 받으면
+      // 그 아래 페이지 콘텐츠(예: 의장 보고서 다운로드 버튼)가 먹통이 되므로
+      // 통과시키고, 실제로 누를 수 있는 패널·버튼에서만 다시 켠다.
+      className={cn("pointer-events-none fixed bottom-5 right-5 z-[60]", nanumGothic.className)}
       style={{ width: panel.w, height: panel.h + PANEL_LIFT }}
     >
       <GooeyFilter />
@@ -318,7 +321,7 @@ export function ChatWidget() {
             onKeyDown={(e) => {
               if (e.key === "Escape") close();
             }}
-            className="absolute right-0 flex flex-col overflow-hidden rounded-2xl text-ink"
+            className="pointer-events-auto absolute right-0 flex flex-col overflow-hidden rounded-2xl text-ink"
             style={{ width: panel.w, height: panel.h, bottom: PANEL_LIFT }}
           >
             <header className="flex shrink-0 items-start justify-between gap-2 px-4 pb-3 pt-3.5 text-white">
@@ -416,7 +419,7 @@ export function ChatWidget() {
         aria-label={open ? "안내 챗봇 닫기" : "안내 챗봇 열기"}
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
-        className="absolute bottom-0 right-0 flex size-14 items-center justify-center rounded-full text-white transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="pointer-events-auto absolute bottom-0 right-0 flex size-14 items-center justify-center rounded-full text-white transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         <motion.span
           key={open ? "x" : "chat"}
