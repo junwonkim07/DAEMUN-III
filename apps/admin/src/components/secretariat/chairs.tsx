@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import type { CommitteeWithTopics, Person, SiteData } from "@daemun/shared";
 import { ApiError, MAX_UPLOAD_BYTES } from "@/lib/api";
 import { peopleHooks, useUploadPersonPhoto } from "@/lib/secretariat";
-import { InlineText } from "@/components/inline-edit";
+import { InlineText, InlineTextarea } from "@/components/inline-edit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
@@ -144,6 +144,16 @@ function ChairRow({
           className="text-xs text-muted"
           onCommit={(role) => patch({ role })}
         />
+        <div>
+          <label className="text-[10px] text-faint">Greeting (blank line separates paragraphs)</label>
+          <InlineTextarea
+            ariaLabel="Greeting"
+            value={person.greeting ?? ""}
+            placeholder="Greeting — leave blank to hide from the site"
+            pending={update.isPending}
+            onCommit={(greeting) => patch({ greeting: greeting || null })}
+          />
+        </div>
         {err && <p className="text-xs text-[#b23b3b]">{err}</p>}
       </div>
 
