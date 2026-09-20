@@ -35,6 +35,26 @@ export function uploadTypeOf(
   return UPLOAD_TYPES[extensionOf(filename)];
 }
 
+/**
+ * A stored file's URL is served `Content-Disposition: inline` by default
+ * (Vercel Blob's plain `url`, or the local driver's `/uploads/<key>`). PDFs
+ * and images render fine that way, but a browser can't render `.doc`/`.docx`
+ * inline — clicking the link just navigates to it, and on Windows/Edge that
+ * gets silently bounced through Microsoft's Office Online Viewer
+ * (view.officeapps.live.com) to attempt a preview. That viewer is unreliable
+ * for anything outside SharePoint/OneDrive and often just fails to open the
+ * file — which is the bug this works around.
+ *
+ * Appending `download=1` (the same param Vercel's own `getDownloadUrl()`
+ * uses) makes the store send `Content-Disposition: attachment` instead, so
+ * the browser downloads the file directly and never tries to preview it. PDFs
+ * and images are left alone since inline viewing works fine for them.
+ */
+export function fileHref(url: string): string {
+  if (extensionOf(url) !== ".doc" && extensionOf(url) !== ".docx") return url;
+  return url.includes("?") ? `${url}&download=1` : `${url}?download=1`;
+}
+
 /** "812 KB" / "3.4 MB" — the label stored alongside documents. */
 export function humanSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;

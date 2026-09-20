@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowUpRight, Download, FileText, Users } from "lucide-react";
-import type { CommitteeWithTopics as Committee } from "@daemun/shared";
+import { fileHref, type CommitteeWithTopics as Committee } from "@daemun/shared";
 import { TBA } from "@/components/site/section";
 import { TextRoll } from "@/components/ui/skiper-ui/skiper58";
 import { cn } from "@/lib/utils";
@@ -152,7 +152,7 @@ export function CommitteeTabs({ committees }: { committees: Committee[] }) {
                         새 탭에서 PDF가 열려 최소한 읽고 저장할 수는 있게.
                       */}
                       <a
-                        href={topic.report}
+                        href={fileHref(topic.report)}
                         download
                         target="_blank"
                         rel="noopener noreferrer"

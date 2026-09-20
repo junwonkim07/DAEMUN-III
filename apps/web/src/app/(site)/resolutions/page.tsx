@@ -1,8 +1,9 @@
 import { Download } from "lucide-react";
-import type {
-  CommitteeWithTopics,
-  Resolution,
-  ResolutionStatus,
+import {
+  fileHref,
+  type CommitteeWithTopics,
+  type Resolution,
+  type ResolutionStatus,
 } from "@daemun/shared";
 import { DocsPage } from "@/components/site/docs-page";
 import { PageHero, TBA } from "@/components/site/section";
@@ -135,7 +136,7 @@ function TopicRow({
         <CellLabel>Document</CellLabel>
         {hasDocument ? (
           <a
-            href={entry.document ?? "#"}
+            href={entry.document ? fileHref(entry.document) : "#"}
             download
             className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-brand/35 px-4 text-[12px] font-roman uppercase tracking-widest text-black/55 transition-colors hover:bg-brand hover:text-white"
           >

@@ -1,4 +1,4 @@
-import type { SiteDocument } from "@daemun/shared";
+import { fileHref, type SiteDocument } from "@daemun/shared";
 
 /**
  * Guide → Documents section, driven by SiteData.documents (edited from the
@@ -24,7 +24,7 @@ export function DocumentsList({ documents }: { documents: SiteDocument[] }) {
         {documents.map((doc) => (
           <li key={doc.id} className="pl-1">
             <a
-              href={doc.file}
+              href={fileHref(doc.file)}
               className="text-brand underline decoration-brand/30 underline-offset-4 transition-colors hover:text-gold hover:decoration-gold/40"
             >
               {doc.title}

@@ -2,6 +2,7 @@
 
 import { Loader2, ShieldCheck, Upload, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { fileHref } from "@daemun/shared";
 import { uploadResolutionDraft } from "@/lib/resolution-upload";
 
 type DelegateTeam = {
@@ -145,7 +146,7 @@ function UploadRow({
       />
       {resolution?.document && (
         <a
-          href={resolution.document}
+          href={fileHref(resolution.document)}
           target="_blank"
           rel="noreferrer"
           className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-4 text-[13px] font-medium text-ink hover:bg-wash"
