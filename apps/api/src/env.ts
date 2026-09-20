@@ -43,6 +43,10 @@ export const env = {
   ),
   /** Shared secret for the web app's /api/revalidate webhook. */
   revalidateSecret: process.env.REVALIDATE_SECRET ?? "",
+  /** Private Next-server -> API diagnostic ingestion; never exposed to browsers. */
+  telemetryIngestSecret: process.env.TELEMETRY_INGEST_SECRET ?? "",
+  /** Optional comma-separated public aliases, in addition to this app's known origins. */
+  telemetryAllowedOrigins: process.env.TELEMETRY_ALLOWED_ORIGINS ?? "",
 
   /** Outgoing mail. Unset SMTP_HOST -> links are logged to the console instead. */
   smtp: {

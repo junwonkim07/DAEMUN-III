@@ -9,7 +9,8 @@
     "start": "tsx --env-file-if-exists=.env src/index.ts",
     "bundle": "node scripts/bundle.mjs",
     "build": "node scripts/vercel-build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/routes/telemetry.test.ts"
   },
   "dependencies": {
     "@daemun/db": "workspace:*",

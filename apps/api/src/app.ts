@@ -8,6 +8,18 @@ import { storage } from "./lib/storage";
 import { adminRoutes } from "./routes/admin";
 import { delegateRoutes } from "./routes/delegate";
 import { publicRoutes } from "./routes/public";
+import { createTelemetryRoutes } from "./routes/telemetry";
+import { storeTelemetry } from "./lib/telemetry-store";
+import { telemetryOrigins } from "./lib/telemetry-origins";
+import { apiErrorReport, persistApiError } from "./lib/telemetry-error";
+
+const telemetry = createTelemetryRoutes({
+  origins: telemetryOrigins(
+    [env.webUrl, env.webPublicUrl, env.adminUrl], env.telemetryAllowedOrigins, env.isProd,
+  ),
+  secret: env.telemetryIngestSecret,
+  save: storeTelemetry,
+});
 
 /**
  * Route map
@@ -47,12 +59,20 @@ export const app = new Hono()
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
 
   .route("/api/public", publicRoutes)
+  .route("/api/public/telemetry", telemetry.publicRoutes)
+  .route("/api/internal/telemetry", telemetry.internalRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api/delegate", delegateRoutes)
 
   .notFound((c) => c.json({ error: "Not found" }, 404))
-  .onError((err, c) => {
-    console.error(err);
+  .onError(async (err, c) => {
+    const report = apiErrorReport(err, {
+      path: c.req.path,
+      userAgent: c.req.header("user-agent"),
+      release: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.APP_RELEASE,
+    });
+    console.error("[api] request failed", report.details.errorType, report.details.message);
+    await persistApiError(report, storeTelemetry);
     return c.json(
       { error: env.isProd ? "Internal server error" : err.message },
       500,

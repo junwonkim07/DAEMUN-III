@@ -21,6 +21,7 @@ const NAV = [
   { href: "/dashboard/teams", label: "Teams" },
   { href: "/dashboard/faqs", label: "FAQ" },
   { href: "/dashboard/chat-logs", label: "Chat logs" },
+  { href: "/dashboard/telemetry", label: "Document telemetry" },
   { href: "/dashboard/preview", label: "Preview" },
 ];
 

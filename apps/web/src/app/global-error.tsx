@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { captureBrowserError } from "@/lib/capture-browser-error";
 
 /**
  * Root error boundary (Next App Router). Only reached when the root layout
@@ -16,6 +17,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("[site] root error:", error);
+    captureBrowserError(error);
   }, [error]);
 
   return (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { captureBrowserError } from "@/lib/capture-browser-error";
 
 /**
  * Route-level error boundary (Next App Router). Catches render/effect errors
@@ -18,6 +19,7 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     console.error("[site] page error:", error);
+    captureBrowserError(error);
   }, [error]);
 
   return (

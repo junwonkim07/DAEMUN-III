@@ -1,8 +1,10 @@
 import { relations } from "drizzle-orm";
+import type { TelemetryDetails, TelemetryEvent } from "@daemun/shared";
 import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -22,6 +24,26 @@ const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date()),
 };
+
+/** Short-lived, sanitized diagnostic reports. No IP, email, stack or request body. */
+export const telemetryEvents = pgTable("telemetry_events", {
+  id: id(),
+  sessionId: text("session_id"),
+  type: text("type").$type<TelemetryEvent["type"]>().notNull(),
+  source: text("source").$type<"browser" | "server">().notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  pagePath: text("page_path").notNull(),
+  documentPath: text("document_path"),
+  release: text("release"),
+  sentryEventId: text("sentry_event_id"),
+  userAgent: text("user_agent"),
+  details: jsonb("details").$type<TelemetryDetails>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("telemetry_events_created_at_idx").on(t.createdAt),
+  index("telemetry_events_session_created_idx").on(t.sessionId, t.createdAt),
+  index("telemetry_events_type_created_idx").on(t.type, t.createdAt),
+]);
 
 /* ------------------------------------------------------------------ */
 /*  Conference (single row, id = "main")                               */

@@ -26,6 +26,7 @@ import {
   teamUpdateSchema,
   topicCreateSchema,
   topicUpdateSchema,
+  telemetryEventTypes,
 } from "@daemun/shared";
 import {
   announcements,
@@ -50,6 +51,13 @@ import { revalidateWeb } from "../lib/revalidate";
 import { requireAdmin } from "../middleware/auth";
 import { buildSiteData } from "./public";
 import { uploadRoutes } from "./uploads";
+import { listTelemetry } from "../lib/telemetry-store";
+
+const telemetryQuerySchema = z.object({
+  sessionId: z.uuid().optional(),
+  type: z.enum(telemetryEventTypes).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+}).strict();
 
 /**
  * Everything under /api/admin requires an authenticated user with role
@@ -65,6 +73,11 @@ import { uploadRoutes } from "./uploads";
  */
 export const adminRoutes = new Hono()
   .use("*", requireAdmin)
+
+  .get("/telemetry", zValidator("query", telemetryQuerySchema), async (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json({ events: await listTelemetry(c.req.valid("query")) });
+  })
 
   /* -- conference (singleton) ---------------------------------------- */
   .get("/conference", async (c) => {

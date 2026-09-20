@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Baked into the rewrites below at build time. A production build that
 // forgot to set it would ship rewrites pointing at localhost and fail only
@@ -12,6 +13,10 @@ if (process.env.NODE_ENV === "production" && !process.env.API_URL) {
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_APP_RELEASE ?? "local",
+    NEXT_PUBLIC_APP_ENV: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development",
+  },
   pageExtensions: ["ts", "tsx", "md", "mdx"],
   // Self-hosting only (a long-lived `node server.js`): emit a self-contained
   // server. Skipped on Vercel, whose builder does its own tracing and fails on
@@ -42,6 +47,7 @@ const nextConfig: NextConfig = {
       { source: "/api/auth/:path*", destination: `${API_URL}/api/auth/:path*` },
       // 안내 챗봇 — 브라우저에서 same-origin으로 호출, API의 공개 엔드포인트로 전달
       { source: "/api/chat", destination: `${API_URL}/api/public/chat` },
+      { source: "/api/telemetry", destination: `${API_URL}/api/public/telemetry` },
       // §6-1: /account의 팀 정보·결의안 업로드. same-origin이어야 세션 쿠키가 실린다.
       { source: "/api/delegate/:path*", destination: `${API_URL}/api/delegate/:path*` },
     ];
@@ -55,4 +61,11 @@ const withMDX = createMDX({
   },
 });
 
-export default withMDX(nextConfig);
+export default withSentryConfig(withMDX(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+});
