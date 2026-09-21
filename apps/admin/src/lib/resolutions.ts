@@ -36,10 +36,10 @@ export function useUploadResolutionDoc() {
   const invalidate = useInvalidateSite();
   return useMutation({
     mutationFn: async ({ id, file }: { id: string; file: File }) => {
-      const { url } = await uploadFile(file);
+      const { url, originalName } = await uploadFile(file);
       return adminFetch<Resolution>(`/resolutions/${id}`, {
         method: "PATCH",
-        json: { document: url },
+        json: { document: url, documentName: originalName },
       });
     },
     onSuccess: invalidate,

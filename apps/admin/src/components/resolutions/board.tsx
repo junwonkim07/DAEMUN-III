@@ -391,7 +391,7 @@ function DocCell({ resolution }: { resolution: Resolution }) {
             disabled={busy}
             onClick={() => {
               if (window.confirm("Delete this resolution's document link? You will need to upload the file again."))
-                update.mutate({ id: resolution.id, patch: { document: null } });
+                update.mutate({ id: resolution.id, patch: { document: null, documentName: null } });
             }}
             className="text-faint hover:text-[#b23b3b] disabled:opacity-50"
           >
@@ -408,7 +408,7 @@ function DocCell({ resolution }: { resolution: Resolution }) {
             "hover:border-faint hover:text-ink disabled:opacity-50",
           )}
         >
-          {upload.isPending ? "Uploading…" : "Upload PDF"}
+          {upload.isPending ? "Uploading…" : "Upload document"}
         </button>
       )}
       {err && <span className="text-[#b23b3b]">{err}</span>}

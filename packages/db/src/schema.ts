@@ -183,6 +183,7 @@ export const resolutions = pgTable("resolutions", {
   submitter: text("submitter").notNull().default(""),
   status: resolutionStatus("status").notNull().default("awaiting"),
   document: text("document"),
+  documentName: text("document_name"),
   sortOrder: sortOrder(),
   ...timestamps,
 });
