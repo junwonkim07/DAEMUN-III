@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { ResolutionDownload } from "@/components/site/resolution-download";
 import type {
   CommitteeWithTopics,
   Resolution,
@@ -16,7 +16,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/skiper-ui/skiper101";
-import { TextRoll } from "@/components/ui/skiper-ui/skiper58";
 import { getSite } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -134,14 +133,7 @@ function TopicRow({
       <div className="flex items-center gap-3 sm:justify-end">
         <CellLabel>Document</CellLabel>
         {hasDocument ? (
-          <a
-            href={entry.document ?? "#"}
-            download
-            className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-brand/35 px-4 text-[12px] font-roman uppercase tracking-widest text-black/55 transition-colors hover:bg-brand hover:text-white"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden />
-            <TextRoll className="leading-none">PDF</TextRoll>
-          </a>
+          <ResolutionDownload url={entry.document!} originalName={entry.documentName} />
         ) : (
           <span className="text-[13px] text-faint">&mdash;</span>
         )}

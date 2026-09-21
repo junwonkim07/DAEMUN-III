@@ -67,7 +67,7 @@ export async function uploadResolutionDraft(file: File): Promise<unknown> {
   const res = await fetch("/api/delegate/resolutions", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: blob.url }),
+    body: JSON.stringify({ url: blob.url, originalName: file.name }),
   });
   const json = await res.json();
   if (!res.ok) throw new ResolutionUploadError(json.error ?? "Upload failed.");

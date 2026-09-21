@@ -158,6 +158,7 @@ export async function buildSiteData(opts: BuildOptions = {}): Promise<SiteData> 
     resolutionsBySlug[slug]!.push({
       ...rest,
       document: hideDocument ? null : r.document,
+      documentName: hideDocument ? null : r.documentName,
       updatedAt: r.updatedAt.toISOString(),
     });
   }

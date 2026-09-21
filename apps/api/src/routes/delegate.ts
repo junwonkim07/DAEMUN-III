@@ -40,6 +40,7 @@ async function myTeamContext(userId: string) {
 async function finalizeUpload(
   ctx: NonNullable<Awaited<ReturnType<typeof myTeamContext>>>,
   url: string,
+  documentName: string | null,
 ) {
   const [existing] = await db.select().from(resolutions).where(eq(resolutions.teamId, ctx.team.id));
 
@@ -47,7 +48,7 @@ async function finalizeUpload(
     ? (
         await db
           .update(resolutions)
-          .set({ document: url })
+          .set({ document: url, documentName })
           .where(eq(resolutions.id, existing.id))
           .returning()
       )[0]!
@@ -63,6 +64,7 @@ async function finalizeUpload(
             submitter: ctx.me.name,
             status: "review",
             document: url,
+            documentName,
           })
           .returning()
       )[0]!;
@@ -168,6 +170,7 @@ export const delegateRoutes = new Hono<AuthEnv>()
     }
 
     let url: string;
+    let documentName: string | null = null;
     if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
       const body = await c.req.parseBody();
       const file = body["file"];
@@ -176,12 +179,13 @@ export const delegateRoutes = new Hono<AuthEnv>()
       }
       try {
         url = (await saveUpload(file)).url;
+        documentName = file.name;
       } catch (err) {
         if (err instanceof UploadRejectedError) return c.json({ error: err.message }, err.status);
         throw err;
       }
     } else {
-      const body = await c.req.json<{ url?: string }>().catch(() => null);
+      const body = await c.req.json<{ url?: string; originalName?: unknown }>().catch(() => null);
       // Only a URL minted by this store may be finalized. Without this check a
       // team lead could record an arbitrary external (or javascript:) href as
       // the team's draft, which admins then open as a link.
@@ -189,8 +193,14 @@ export const delegateRoutes = new Hono<AuthEnv>()
         return c.json({ error: "Expected a JSON `url` field pointing at this upload store" }, 400);
       }
       url = body.url;
+      if (body.originalName != null) {
+        if (typeof body.originalName !== "string" || !body.originalName.length || body.originalName.length > 255) {
+          return c.json({ error: "Invalid original filename" }, 400);
+        }
+        documentName = body.originalName;
+      }
     }
 
-    const { row, created } = await finalizeUpload(ctx, url);
+    const { row, created } = await finalizeUpload(ctx, url, documentName);
     return c.json(row, created ? 201 : 200);
   });

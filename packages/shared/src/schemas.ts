@@ -181,6 +181,7 @@ export const resolutionSchema = z.object({
   submitter: str,
   status: resolutionStatusSchema,
   document: str.nullable(),
+  documentName: z.string().max(255).nullable().optional(),
   sortOrder: z.number().int(),
   updatedAt: z.string(),
 });
@@ -193,6 +194,7 @@ const resolutionFields = {
   submitter: str,
   status: resolutionStatusSchema,
   document: optStr,
+  documentName: z.string().min(1).max(255).nullable().optional(),
   sortOrder,
 };
 export const resolutionCreateSchema = z.object(resolutionFields).extend({
