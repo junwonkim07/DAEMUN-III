@@ -7,12 +7,29 @@
 // rules about *what* may be stored live in @daemun/shared so the browser can
 // enforce the same ones when it uploads directly (see routes/uploads.ts).
 import { randomUUID } from "node:crypto";
-import { extensionOf, humanSize, uploadTypeOf, type SavedFile } from "@daemun/shared";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import {
+  extensionOf,
+  humanSize,
+  uploadTypeOf,
+  UPLOAD_EXTENSIONS,
+  type SavedFile,
+  type UploadConfig,
+} from "@daemun/shared";
 import { env } from "../env";
 import { storage } from "./storage";
 
 export { humanSize };
 export type { SavedFile };
+
+/** Tells a browser whether it may upload straight to storage and what this server accepts. */
+export function uploadConfig(): UploadConfig {
+  return {
+    mode: storage.name === "local" ? "proxy" : "direct",
+    maxBytes: env.maxUploadBytes,
+    extensions: UPLOAD_EXTENSIONS,
+  };
+}
 
 export class UploadRejectedError extends Error {
   constructor(
@@ -21,6 +38,53 @@ export class UploadRejectedError extends Error {
   ) {
     super(message);
   }
+}
+
+/**
+ * A direct-upload pathname the browser proposed. It must look like the keys
+ * we mint ourselves (`<uuid><ext>`) — the client picks the name, so without
+ * this it could overwrite an unrelated object or plant a path outside the
+ * store's flat namespace.
+ */
+const UPLOAD_KEY_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/;
+
+/**
+ * Shared by every direct-upload token route (admin uploads, delegate
+ * resolutions) — mints a short-lived token the browser uses to PUT a file
+ * straight into the store, skipping this server. That detour exists because
+ * a serverless function caps its request body around 4.5 MB while
+ * MAX_UPLOAD_MB is 25: a resolution PDF cannot fit through the function at
+ * all. The rules still hold — they move into the token, and the store
+ * enforces `maximumSizeInBytes` itself, so a client that lies about the size
+ * still gets rejected.
+ */
+export async function mintUploadToken(body: HandleUploadBody, request: Request) {
+  if (body?.type !== "blob.generate-client-token") {
+    throw new UploadRejectedError("Unexpected event type", 400);
+  }
+  return handleUpload({
+    body,
+    request,
+    onBeforeGenerateToken: async (pathname) => {
+      if (!UPLOAD_KEY_SHAPE.test(pathname)) {
+        throw new UploadRejectedError("Malformed upload key", 400);
+      }
+      const type = uploadTypeOf(pathname);
+      if (!type) throw new UploadRejectedError("Unsupported file type", 415);
+      return {
+        allowedContentTypes: [type.mime],
+        maximumSizeInBytes: env.maxUploadBytes,
+        addRandomSuffix: false,
+        // The client picks the key, so state outright that an existing
+        // object must never be replaced rather than lean on the API default.
+        allowOverwrite: false,
+      };
+    },
+    // Deliberately no onUploadCompleted. With it absent the SDK embeds no
+    // callback URL in the token, so nothing later tries to call back without
+    // a session. The browser hands the URL to the mutation that writes the
+    // row; an object no row ever references is collected by /gc.
+  });
 }
 
 /**

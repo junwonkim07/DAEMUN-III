@@ -2,6 +2,7 @@
 
 import { Loader2, ShieldCheck, Upload, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { uploadResolutionDraft } from "@/lib/resolution-upload";
 
 type DelegateTeam = {
   team: {
@@ -121,12 +122,8 @@ function UploadRow({
     setUploading(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/delegate/resolutions", { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
-      onUploaded(json);
+      const row = await uploadResolutionDraft(file);
+      onUploaded(row as NonNullable<DelegateTeam["resolution"]>);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {

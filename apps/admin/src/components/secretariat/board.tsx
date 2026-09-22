@@ -222,6 +222,12 @@ function PhotoCell({ person }: { person: Person }) {
   const update = peopleHooks.useUpdate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
+  // A photo URL that failed to load — e.g. a pre-upload-pipeline seed path
+  // like /profiles/*.jpg that 404s here until this app's WEB_URL rewrite is
+  // configured (next.config.ts). Compared against the current URL rather
+  // than a plain boolean so it clears itself the moment the photo changes.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const photoOk = person.photo && person.photo !== failedUrl;
 
   // 업로드/교체와 삭제는 다른 mutation — 같은 busy로 묶어 경합을 막는다
   const busy = upload.isPending || update.isPending;
@@ -248,12 +254,13 @@ function PhotoCell({ person }: { person: Person }) {
   return (
     <div className="w-24 shrink-0">
       <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-line bg-wash">
-        {person.photo ? (
+        {photoOk ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={person.photo}
+            src={person.photo!}
             alt={person.name}
             className="h-full w-full object-cover"
+            onError={() => setFailedUrl(person.photo)}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-[10px] text-faint">

@@ -30,17 +30,20 @@
  *   `"framework": null` in vercel.json keeps Vercel from also auto-building
  *   src/index.ts as a second function.
  *
- * - ../public/ is empty and exists only because the "Other" preset refuses to
- *   finish a deploy without a static output directory. Nothing is served
- *   from it.
+ * - vercel.json points outputDirectory at dist/public, which the build
+ *   creates with a single robots.txt (Disallow: /), because the "Other"
+ *   preset refuses to finish a deploy without a non-empty static output
+ *   directory. Static files are served ahead of the rewrite, so a real
+ *   public/ checked into the repo was bypassing Hono and its security
+ *   headers; robots.txt is the one path that is meant to.
  *
  * What deliberately does NOT happen here, compared with src/index.ts:
  *
  * - bootstrap() is not called. It applies migrations, seeds an empty database
  *   and creates the first admin — once-per-boot work that a serverless
  *   runtime would repeat on every cold start, concurrently across instances.
- *   Migrations run from the deploy workflow instead
- *   (`pnpm --filter @daemun/db migrate` against the production database).
+ *   Migrations run in the production build step instead
+ *   (scripts/vercel-build.mjs, run by vercel.json's buildCommand).
  *
  * - /health still answers (the rewrite forwards it too), but nothing here
  *   polls it — the Docker health check that used it does not exist on this

@@ -14,6 +14,7 @@
 // endpoint. Runtime traffic uses DATABASE_URL (pooled); DDL through a
 // transaction-mode pooler is not something to depend on.
 import { execSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 function run(cmd) {
   console.log(`[vercel-build] ${cmd}`);
@@ -33,3 +34,13 @@ if (env === "production") {
 }
 
 run("pnpm bundle");
+
+// The "Other" preset refuses to finish a deploy without a static output
+// directory (vercel.json outputDirectory) and rejects an empty one. Static
+// files are served ahead of the rewrite, so a real public/ checked into the
+// repo was reaching visitors without passing through Hono and its security
+// headers. Instead the directory exists only after the build and holds one
+// file: a robots.txt that keeps crawlers off an origin serving nothing but
+// JSON — the one path that is meant to bypass Hono.
+mkdirSync("dist/public", { recursive: true });
+writeFileSync("dist/public/robots.txt", "User-agent: *\nDisallow: /\n");

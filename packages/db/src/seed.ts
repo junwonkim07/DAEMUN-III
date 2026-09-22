@@ -47,6 +47,8 @@ export async function seedIfEmpty(db: Db): Promise<boolean> {
     await tx.insert(t.scheduleItems).values(s.schedule.flatMap((d) => d.items));
 
     await tx.insert(t.documents).values(s.documents);
+
+    await tx.insert(t.announcements).values(s.announcements);
   });
 
   return true;

@@ -1,4 +1,5 @@
 import type { SiteDocument } from "@daemun/shared";
+import { DocumentDiagnostics } from "./document-diagnostics";
 
 /**
  * Guide → Documents section, driven by SiteData.documents (edited from the
@@ -34,6 +35,7 @@ export function DocumentsList({ documents }: { documents: SiteDocument[] }) {
           </li>
         ))}
       </ul>
+      <DocumentDiagnostics documents={documents} />
     </>
   );
 }

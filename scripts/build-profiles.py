@@ -29,6 +29,9 @@ ROMAN = {
     "허예지": "heo-yeji",
     "현재희": "hyun-jaehee",
     "mrTED": "ted-kim",
+    "김민지": "kim-minji",
+    "김영찬": "kim-yeongchan",
+    "권재후": "kwon-jaehoo",
 }
 
 os.makedirs(OUT, exist_ok=True)

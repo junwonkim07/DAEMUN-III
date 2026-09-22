@@ -9,7 +9,6 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState } from "react";
 
-import { AuthMenu } from "@/components/site/auth-menu";
 import { cn } from "@/lib/utils";
 
 type MenuLink = { label: string; href: string };
@@ -174,9 +173,6 @@ const MenuSection = ({
 
 const MobileMenu = ({ onNavigate }: { onNavigate: () => void }) => (
   <div className="h-screen w-full bg-white pt-6 backdrop-blur-2xl">
-    <div className="mb-6 px-8">
-      <AuthMenu onNavigate={onNavigate} />
-    </div>
     <motion.ul
       initial="hidden"
       animate="visible"
@@ -259,14 +255,6 @@ export function AppleNav() {
               </Link>
             </li>
           ))}
-
-          {/* Sign in / account (desktop) */}
-          <li
-            className="hidden items-center py-2 lg:flex"
-            onMouseEnter={() => setHoveredItem(null)}
-          >
-            <AuthMenu onNavigate={closeAll} />
-          </li>
 
           {/* Mobile toggle */}
           <li className="flex items-center justify-center py-2 lg:hidden">

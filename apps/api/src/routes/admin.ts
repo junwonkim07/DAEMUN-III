@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
+  announcementCreateSchema,
+  announcementUpdateSchema,
   committeeCreateSchema,
   committeeUpdateSchema,
   conferenceUpdateSchema,
@@ -24,8 +26,10 @@ import {
   teamUpdateSchema,
   topicCreateSchema,
   topicUpdateSchema,
+  telemetryEventTypes,
 } from "@daemun/shared";
 import {
+  announcements,
   chatLogs,
   committees,
   conference,
@@ -34,6 +38,7 @@ import {
   faqs,
   people,
   resolutions,
+  resolutionVersions,
   scheduleDays,
   scheduleItems,
   teams,
@@ -46,6 +51,13 @@ import { revalidateWeb } from "../lib/revalidate";
 import { requireAdmin } from "../middleware/auth";
 import { buildSiteData } from "./public";
 import { uploadRoutes } from "./uploads";
+import { listTelemetry } from "../lib/telemetry-store";
+
+const telemetryQuerySchema = z.object({
+  sessionId: z.uuid().optional(),
+  type: z.enum(telemetryEventTypes).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+}).strict();
 
 /**
  * Everything under /api/admin requires an authenticated user with role
@@ -61,6 +73,11 @@ import { uploadRoutes } from "./uploads";
  */
 export const adminRoutes = new Hono()
   .use("*", requireAdmin)
+
+  .get("/telemetry", zValidator("query", telemetryQuerySchema), async (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json({ events: await listTelemetry(c.req.valid("query")) });
+  })
 
   /* -- conference (singleton) ---------------------------------------- */
   .get("/conference", async (c) => {
@@ -157,15 +174,36 @@ export const adminRoutes = new Hono()
       orderBy: (t) => [asc(t.committeeId)],
     }),
   )
+  /** Upload history for one resolution (§6-1 versioning), newest first. */
+  .get("/resolutions/:id/versions", async (c) => {
+    const rows = await db
+      .select()
+      .from(resolutionVersions)
+      .where(eq(resolutionVersions.resolutionId, c.req.param("id")))
+      .orderBy(desc(resolutionVersions.createdAt));
+    return c.json(rows);
+  })
+
   /**
    * Bulk "approved -> published" (§6-1). Only rows still `approved` move;
-   * anything else (awaiting/review/already published) is left alone.
+   * anything else (awaiting/review/already published) is left alone. An
+   * optional `committeeId` scopes this to one committee — the 13:00
+   * cross-committee reveal uses the unscoped form, but the requirement also
+   * calls for publishing one committee at a time.
    */
   .post("/resolutions/publish-approved", async (c) => {
+    // Body is optional — the cross-committee "publish everything" call sends
+    // none at all, so this can't use zValidator (it chokes on an empty body).
+    const body = await c.req.json<{ committeeId?: string }>().catch(() => null);
+    const committeeId = body?.committeeId;
     const rows = await db
       .update(resolutions)
       .set({ status: "published" })
-      .where(eq(resolutions.status, "approved"))
+      .where(
+        committeeId
+          ? and(eq(resolutions.status, "approved"), eq(resolutions.committeeId, committeeId))
+          : eq(resolutions.status, "approved"),
+      )
       .returning({ id: resolutions.id });
     revalidateWeb();
     return c.json({ published: rows.length });
@@ -211,6 +249,14 @@ export const adminRoutes = new Hono()
   .route(
     "/documents",
     crudRoutes({ table: documents, create: documentCreateSchema, update: documentUpdateSchema }),
+  )
+  .route(
+    "/announcements",
+    crudRoutes({
+      table: announcements,
+      create: announcementCreateSchema,
+      update: announcementUpdateSchema,
+    }),
   )
 
   /* -- FAQ (안내 챗봇 지식베이스, SiteData 밖) ----------------------- */

@@ -14,7 +14,12 @@ import { env } from "./env";
  *  3. create the first admin account from ADMIN_EMAIL / ADMIN_PASSWORD
  *  4. make sure the upload directory exists
  *
- * All steps are idempotent, so this runs on every start (including in Docker).
+ * All steps are idempotent, so this runs on every start.
+ *
+ * Only a long-lived process calls it (src/index.ts — local dev, or any
+ * self-hosted `pnpm start`). The serverless entry deliberately does not: see
+ * api/index.mjs. There, migrations run in the build step and the first admin
+ * is created by an existing admin.
  */
 export async function bootstrap() {
   await runMigrations(db);

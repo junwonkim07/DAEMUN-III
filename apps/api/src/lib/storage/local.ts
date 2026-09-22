@@ -1,8 +1,11 @@
 /**
  * Files on the API server's own disk, served back by the `/uploads/*` route in
- * app.ts. This is what the VPS deployment has always done, kept byte-for-byte
- * compatible: same `<uuid><ext>` filenames, same `/uploads/<name>` URLs, so
- * rows already in the database keep resolving.
+ * app.ts. The default driver, and the only one that works without object
+ * storage — local development, or a self-hosted long-lived process with a
+ * persistent volume. It is byte-for-byte what the old VPS deployment wrote:
+ * same `<uuid><ext>` filenames, same `/uploads/<name>` URLs, so rows written
+ * back then keep resolving. Vercel's filesystem is ephemeral and per-instance,
+ * so the hosted deployment sets UPLOAD_DRIVER=blob instead.
  */
 import fs from "node:fs/promises";
 import path from "node:path";

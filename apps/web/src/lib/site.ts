@@ -1,8 +1,8 @@
 import { defaultSite, type SiteData } from "@daemun/shared";
 
 /**
- * Where the web server reaches the API. Inside Docker Compose this is the
- * service name (http://api:4000); locally it is the dev server.
+ * Where the web server reaches the API: the hosted API's public origin
+ * (a daemun-web project variable), or the local dev server.
  */
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 

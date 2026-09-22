@@ -1,8 +1,10 @@
 import { relations } from "drizzle-orm";
+import type { TelemetryDetails, TelemetryEvent } from "@daemun/shared";
 import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -22,6 +24,26 @@ const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date()),
 };
+
+/** Short-lived, sanitized diagnostic reports. No IP, email, stack or request body. */
+export const telemetryEvents = pgTable("telemetry_events", {
+  id: id(),
+  sessionId: text("session_id"),
+  type: text("type").$type<TelemetryEvent["type"]>().notNull(),
+  source: text("source").$type<"browser" | "server">().notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  pagePath: text("page_path").notNull(),
+  documentPath: text("document_path"),
+  release: text("release"),
+  sentryEventId: text("sentry_event_id"),
+  userAgent: text("user_agent"),
+  details: jsonb("details").$type<TelemetryDetails>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("telemetry_events_created_at_idx").on(t.createdAt),
+  index("telemetry_events_session_created_idx").on(t.sessionId, t.createdAt),
+  index("telemetry_events_type_created_idx").on(t.type, t.createdAt),
+]);
 
 /* ------------------------------------------------------------------ */
 /*  Conference (single row, id = "main")                               */
@@ -161,8 +183,24 @@ export const resolutions = pgTable("resolutions", {
   submitter: text("submitter").notNull().default(""),
   status: resolutionStatus("status").notNull().default("awaiting"),
   document: text("document"),
+  documentName: text("document_name"),
   sortOrder: sortOrder(),
   ...timestamps,
+});
+
+/**
+ * One row per upload of a resolution's draft (§6-1 upload versioning).
+ * Append-only — `resolutions.document` still holds the current file, this
+ * is the history alongside it. `uploads-gc.ts` must treat these as
+ * referenced too, or it deletes superseded drafts out from under this table.
+ */
+export const resolutionVersions = pgTable("resolution_versions", {
+  id: id(),
+  resolutionId: text("resolution_id")
+    .notNull()
+    .references(() => resolutions.id, { onDelete: "cascade" }),
+  document: text("document").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /* ------------------------------------------------------------------ */
@@ -243,6 +281,26 @@ export const documents = pgTable("documents", {
   file: text("file").notNull(),
   kind: text("kind").notNull().default("PDF"),
   size: text("size").notNull().default(""),
+  sortOrder: sortOrder(),
+  ...timestamps,
+});
+
+/* ------------------------------------------------------------------ */
+/*  Announcements (§6-2)                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Time-sensitive notices for the public /announcements page. `published`
+ * false = draft (admin-only); the public payload only carries published
+ * ones. `urgent` pins it to the top with a highlighted band on the site.
+ */
+export const announcements = pgTable("announcements", {
+  id: id(),
+  title: text("title").notNull().default(""),
+  body: text("body").notNull().default(""),
+  date: text("date").notNull().default(""),
+  urgent: boolean("urgent").notNull().default(false),
+  published: boolean("published").notNull().default(false),
   sortOrder: sortOrder(),
   ...timestamps,
 });
@@ -354,7 +412,7 @@ export const peopleRelations = relations(people, ({ one }) => ({
   }),
 }));
 
-export const resolutionsRelations = relations(resolutions, ({ one }) => ({
+export const resolutionsRelations = relations(resolutions, ({ one, many }) => ({
   committee: one(committees, {
     fields: [resolutions.committeeId],
     references: [committees.id],
@@ -366,6 +424,14 @@ export const resolutionsRelations = relations(resolutions, ({ one }) => ({
   team: one(teams, {
     fields: [resolutions.teamId],
     references: [teams.id],
+  }),
+  versions: many(resolutionVersions),
+}));
+
+export const resolutionVersionsRelations = relations(resolutionVersions, ({ one }) => ({
+  resolution: one(resolutions, {
+    fields: [resolutionVersions.resolutionId],
+    references: [resolutions.id],
   }),
 }));
 

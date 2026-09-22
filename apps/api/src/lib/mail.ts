@@ -100,3 +100,18 @@ export function passwordResetMail(to: string, url: string): Mail {
     ),
   };
 }
+
+/** Sent to a team's non-lead members whenever the lead uploads or replaces the draft. */
+export function resolutionUploadedMail(to: string, teamName: string, accountUrl: string): Mail {
+  const team = teamName || "Your team";
+  return {
+    to,
+    subject: `${team}'s draft resolution was uploaded — DAEMUN III`,
+    text: `${team}'s lead just uploaded (or replaced) your draft resolution.\n\nCheck its status on your account page:\n${accountUrl}`,
+    html: layout(
+      "Draft resolution uploaded",
+      `${escapeHtml(team)}'s lead just uploaded (or replaced) your draft resolution. Check its status on your account page.`,
+      { label: "View your team", url: accountUrl },
+    ),
+  };
+}

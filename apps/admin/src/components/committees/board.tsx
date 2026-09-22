@@ -193,6 +193,8 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
   const update = committeeHooks.useUpdate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [localErr, setLocalErr] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const imageOk = committee.image && committee.image !== failedUrl;
   const busy = upload.isPending || update.isPending;
 
   function pick(file: File | undefined) {
@@ -212,9 +214,14 @@ function ImageThumb({ committee }: { committee: CommitteeWithTopics }) {
   return (
     <div className="w-24 shrink-0">
       <div className="relative aspect-video overflow-hidden rounded-lg border border-line bg-wash">
-        {committee.image ? (
+        {imageOk ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={committee.image} alt="" className="h-full w-full object-cover" />
+          <img
+            src={committee.image!}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setFailedUrl(committee.image)}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-[10px] text-faint">
             No image

@@ -7,24 +7,26 @@
 
 ---
 
-## 0. 운영 환경 (2026-09-03 기준)
+## 0. 운영 환경 (2026-09-11 기준)
 
 | | 값 |
 |---|---|
-| 서버 | VPS `104.36.69.86` (Debian 13, 2 vCPU, RAM 1GB + swap 3.6GB). SSH는 김준원의 키로만 접속 |
-| 사이트 | http://104.36.69.86 |
-| 어드민 패널 | http://104.36.69.86:8081 (`apps/admin`, compose 서비스 `admin`) |
-| API | http://104.36.69.86:8080 — `GET /health`, `GET /api/public/site` 로 확인 |
-| 스택 | `/opt/daemun`에 클론된 이 저장소 + `docker-compose.yml` (postgres, api, web, caddy). 데이터는 `/opt/daemun/data/` |
-| 배포 | **main에 머지되면 GitHub Actions가 자동 배포** (`.github/workflows/deploy.yml`). 이미지 3개(api·web·admin)를 GitHub 러너에서 빌드해 GHCR(`ghcr.io/junwonkim07/daemun-iii/*`)에 올리고, 서버는 `docker compose pull` 후 재시작만 한다. 서버 부하 없이 재시작 몇 초 정도만 끊긴다 |
-| 도메인 | 아직 없음. 생기면 서버 `.env`의 `WEB_DOMAIN`, `API_DOMAIN`만 바꾸면 Caddy가 HTTPS 자동 발급 |
-| 관리자 계정 | `admin@daemun.local`. 비밀번호는 서버 `/opt/daemun/.env`의 `ADMIN_PASSWORD` — 김준원에게 요청 |
+| 호스팅 | **Vercel** (Hobby, 개인 계정 `junwon-9966`), 프로젝트 3개 — `daemun-web`, `daemun-api`, `daemun-admin` (root directory `apps/web` `apps/api` `apps/admin`). 함수 리전 `sin1`(싱가포르) |
+| 사이트 | https://daemun-web.vercel.app |
+| 어드민 패널 | https://daemun-admin.vercel.app |
+| API | https://daemun-api.vercel.app — `GET /health`, `GET /api/public/site` 로 확인 |
+| DB | **Neon** Free (프로젝트 `daemun-iii`, 싱가포르, PG 17, 0.5GB). 접속 문자열은 Vercel `daemun-api` 환경변수 `DATABASE_URL`(pooled, 런타임) / `MIGRATE_DATABASE_URL`(direct, 빌드 시 마이그레이션) |
+| 업로드 | **Vercel Blob** 스토어 `daemun-uploads` (public, `sin1`), `daemun-api`에 연결돼 토큰이 자동 주입. 브라우저가 스토어에 직접 올린다 (`apps/api/src/routes/uploads.ts`) — 25MB까지 |
+| 배포 | **2026-09-11 현재 자동 배포는 꺼져 있다.** `.github/workflows/deploy.yml`은 GitHub 시크릿 `VERCEL_TOKEN`이 있을 때만 `vercel deploy --prod`(api → web → admin)를 돌리고, 없으면 안내만 찍고 green으로 끝난다 — **지금은 토큰이 없어서 main 머지가 아무것도 배포하지 않는다.** 토큰을 넣거나(Vercel → Account Settings → Tokens) 각 Vercel 프로젝트 Settings → Git에서 이 저장소를 연결할 때까지는 §7의 수동 배포가 유일한 경로 |
+| 도메인 | 아직 없음. 생기면 Vercel 프로젝트에 도메인을 붙이고 `ADMIN_URL`·`WEB_PUBLIC_URL`·`WEB_URL`·`API_URL` 환경변수를 바꾼 뒤 3개 재배포 (§3 — 하나라도 틀리면 로그인 전부 403) |
+| 관리자 계정 | `admin@daemun.local` 외 2명. 비밀번호는 김준원에게 요청 |
+| 옛 VPS | `104.36.69.86` — 2026-09-11 데이터 이전 후 **퇴역**. 더 이상 배포되지 않고, 그쪽 어드민에서 저장한 것은 어디에도 반영되지 않는다. 서버 자체는 오너가 끈다 |
 
 **어드민 패널 개발자에게 특히 중요한 것:**
 
-- 서버 `.env`의 `ADMIN_URL`은 **패널의 origin**(`ADMIN_DOMAIN`과 같은 값, 지금은 `http://104.36.69.86:8081`)이어야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
-- **Next.js rewrites는 빌드 시점에 고정된다.** `apps/admin/next.config.ts`의 `API_URL`은 런타임 env가 아니라 build ARG다 (`apps/admin/Dockerfile`, `docker-compose.yml`의 `build.args`). 로컬에서는 기본값 `http://localhost:4000`.
-- 패널은 `docker-compose.yml`의 `admin` 서비스로 web·api와 같이 배포된다 (`deploy/Caddyfile`의 `ADMIN_DOMAIN` 사이트). 이미지는 GitHub Actions가 빌드해 GHCR에 올리고 서버는 pull만 한다 (RAM 1GB라 서버에서 빌드하지 않는다). `docker-compose.yml`의 `build:` 섹션은 GHCR이 안 될 때 로컬 빌드용 폴백이다.
+- Vercel `daemun-api`의 `ADMIN_URL`은 **패널의 origin**(`https://daemun-admin.vercel.app`)이어야 로그인이 된다 (§3). 로컬 개발은 기본값 `http://localhost:3001`이라 그대로 되고, 프로덕션 API에 로컬 패널을 붙여 테스트하는 건 CSRF 때문에 안 된다 — 로컬 API를 띄워서 개발할 것.
+- **Next.js rewrites는 빌드 시점에 고정된다.** `apps/admin/next.config.ts`의 `API_URL`은 런타임 env가 아니라 빌드 때 읽는 값이다 — Vercel `daemun-admin`/`daemun-web`의 환경변수(`https://daemun-api.vercel.app`). 프로덕션 빌드에서 비어 있으면 일부러 실패한다. 로컬에서는 기본값 `http://localhost:4000`.
+- 패널은 별도 Vercel 프로젝트(`daemun-admin`)로 web·api와 함께 배포된다. 업로드는 브라우저가 Blob에 직접 올리므로(`uploadFile()` in `apps/admin/src/lib/api.ts`) 함수 요청 바디 4.5MB 상한과 무관하게 25MB까지 된다 — 로컬(`UPLOAD_DRIVER=local`)에선 예전처럼 API로 POST.
 - 프로덕션 DB는 이미 실제 사무국 명단·인사말로 채워져 있다. `packages/shared/src/default-site.ts`는 더 이상 진실이 아니고, 콘텐츠의 진실은 DB다.
 
 ---
@@ -35,9 +37,9 @@
 | ------------------------ | ------------------------------------------------------------------------ |
 | 공개 사이트`apps/web`  | 완성. API에서 콘텐츠 읽음, API 죽으면`defaultSite`로 폴백              |
 | API`apps/api`          | 완성. 인증 + 모든 콘텐츠 CRUD + 파일 업로드 + 캐시 무효화                |
-| DB`packages/db`        | 완성. 마이그레이션 1개, 부팅 시 자동 마이그레이션·시드                  |
-| **어드민 패널 UI** | **없음 — 당신이 만든다.** API는 패널에 필요한 모든 것을 이미 제공 |
-| 실제 VPS 배포            | **운영 중.** http://104.36.69.86 (사이트), http://104.36.69.86:8080 (API). main 머지 시 자동 배포 (§0) |
+| DB`packages/db`        | 완성. 마이그레이션 7개 (`0000`–`0006`). 로컬은 API 부팅 시 자동 마이그레이션·시드, 프로덕션은 `daemun-api` 빌드 시 마이그레이션만 |
+| 어드민 패널 `apps/admin` | 로그인·결의안 현황판·사무국·계정·문서·일정 등 완료, 나머지는 §5 순서로. Vercel `daemun-admin`으로 배포 |
+| 실제 배포                | **운영 중 (Vercel + Neon + Blob).** https://daemun-web.vercel.app (사이트), https://daemun-api.vercel.app (API). 배포 절차는 §0·§7 — 자동 배포는 `VERCEL_TOKEN` 설정 전까지 꺼져 있음 |
 
 콘텐츠는 대부분 `TBA` 플레이스홀더. 사무국 **직책 배정은 맞음...!**— 그러나 패널에서 향후 MUN 개최시 수정 가능하게 만드는것
 
@@ -82,7 +84,7 @@ REVALIDATE_SECRET=dev
    ```
 
    그러면 패널 코드에서는 그냥 `fetch("/api/admin/...")`.
-2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 프로덕션은 서버 `.env`의 `ADMIN_DOMAIN`과 같은 값(지금 `http://104.36.69.86:8081`, 도메인 생기면 `https://admin.<도메인>`).
+2. **API의 `ADMIN_URL` = 패널의 공개 origin.** better-auth의 `baseURL`이자 `trustedOrigins`라서 틀리면 CSRF 검사에서 전부 403. 로컬은 `http://localhost:3001`, 프로덕션은 Vercel `daemun-api`의 환경변수(지금 `https://daemun-admin.vercel.app`, 도메인 생기면 `https://admin.<도메인>` — 바꾸면 api 재배포).
 3. **클라이언트는 `better-auth/react`를 쓴다.**
 
    ```ts
@@ -92,7 +94,7 @@ REVALIDATE_SECRET=dev
    // auth.signIn.email({ email, password }), auth.useSession(), auth.admin.createUser(...)
    ```
 
-   공개 회원가입은 꺼져 있다. 계정은 관리자가 `auth.admin.createUser`로 발급.
+   공개 사이트에서 참가자 셀프 가입이 열려 있다 (role은 항상 `delegate`, 이메일 인증 필수). 관리자 계정만 `auth.admin.createUser` 또는 `set-role`로 발급.
 
 라우트 보호는 패널에서 쿠키 유무만 낙관적으로 보고(Next 16은 `proxy.ts`), 실제 권한은 API의 `requireAdmin`(세션·밴·`role === "admin"`)이 판단한다. 401 → 로그인 페이지로, 403 → 권한 없음 화면.
 
@@ -155,7 +157,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 회의에서 확정된 흐름:
 
-1. 참가자(팀장)가 **직접 계정을 만들고 로그인**한다. 회의록 원문은 "로그인 회원가입 창을 만들어서 계정을 만들라고 해" — 즉 **셀프 회원가입**. 지금 API는 `disableSignUp: true`라 관리자 발급만 되므로, 참가자용 가입은 열되 `role`이 `admin`이 되지 않게 해야 한다 (아래 주의).
+1. 참가자(팀장)가 **직접 계정을 만들고 로그인**한다. 회의록 원문은 "로그인 회원가입 창을 만들어서 계정을 만들라고 해" — 즉 **셀프 회원가입**. **(완료)** 셀프 가입이 열려 있고 `defaultRole: "delegate"`다 (`apps/api/src/auth.ts`).
 2. 팀장이 완성한 결의안 PDF를 마이페이지 또는 Resolutions 페이지의 Upload 버튼으로 올린다.
 3. 올린 파일은 **사무국·의장만 볼 수 있고 다른 팀에게는 비공개**. 사무국은 각 팀의 진행 상황(올렸는지, 리뷰 중인지)을 볼 수 있어야 한다.
 4. 상태 3단계: 미제출(`awaiting`) / 리뷰 중(`review`) / 승인(`approved`). 현재 enum과 동일.
@@ -164,7 +166,7 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 필요한 확장:
 
-- 참가자 role. `user.role`에 `"delegate"`(또는 `"team"`) 추가, 팀 ↔ 위원회/의제 매핑 테이블. **주의: `apps/api/src/auth.ts`의 admin 플러그인이 `defaultRole: "admin"`이라 가입·`createUser`에 role을 안 넘기면 관리자가 된다.** 셀프 가입을 열면 `defaultRole`을 반드시 `"delegate"`로 바꿀 것. `requireAdmin`은 `role === "admin"`만 통과시키므로 참가자용 라우트는 별도 미들웨어.
+- 참가자 role — **완료**: `user.role` `"delegate"`, `teams` 테이블(#26), `defaultRole: "delegate"`(#37에서 `teamRole`·`teamId`도 관리자 전용으로 잠금). `requireAdmin`은 `role === "admin"`만 통과시키므로 참가자용 라우트는 `requireUser`(`routes/delegate.ts`).
 - `POST /api/delegate/resolutions/:topicId/upload` — 본인 팀 의제에만, 파일은 `resolutions.document`로, 상태는 `review`로.
 - `resolutions.publishedAt`(또는 `visibility`) — 공개 API(`/api/public/site`)는 `approved` **이고** 공개된 것만 `document`를 내려준다. 지금은 approved면 바로 다운로드 링크가 뜬다 (`apps/web/src/app/resolutions/page.tsx`).
 - 13:00 일괄 공개: 관리자 "전체 공개" 버튼 하나 (스케줄러보다 단순·안전). 위원회별로도 가능하게.
@@ -194,10 +196,10 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 ## 7. 작업 규칙
 
 - **커밋 전 `pnpm typecheck`** 통과. 루트에서 전체 패키지 검사.
-- **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. API 부팅 시 자동 적용. zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
+- **스키마 변경**: `packages/db/src/schema.ts` 수정 → `pnpm db:generate` → 생성된 SQL 확인 → 커밋. 로컬은 부팅 시, 프로덕션은 `daemun-api` 빌드 시 적용된다 (프리뷰 배포는 건너뜀). zod 스키마(`packages/shared`)도 같이 맞출 것 — 타입이 web·api·admin에 다 퍼진다.
 - **새 CRUD 리소스**: `crudRoutes({ table, create, update, orderBy? })` (`lib/crud.ts`)에 테이블 + zod 스키마 넘기고 `admin.ts`에 `.route("/xxx", ...)` 한 줄. 손으로 라우트 짜지 말 것.
-- **배포 시 반드시**: `docker-compose.yml`에 `admin` 서비스 추가, `deploy/Caddyfile`에 도메인 추가, `ADMIN_URL`을 패널 도메인으로.
-- **main 머지 = 배포.** `.github/workflows/deploy.yml`이 이미지를 빌드해 GHCR에 push한 뒤 서버에 SSH로 들어가 `IMAGE_TAG=<커밋 sha> docker compose pull && up -d --no-build`를 돌린다. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 배포 결과는 GitHub Actions 탭에서 확인. 롤백은 서버에서 `IMAGE_TAG=<이전 sha> docker compose pull api web admin && IMAGE_TAG=<이전 sha> docker compose up -d --no-build` (배포마다 이전 이미지를 정리하므로 pull이 먼저). Dockerfile·compose·워크플로우를 건드린 PR은 CI에서 이미지 빌드(push 없이)까지 돌려본다.
+- **배포 시 반드시**: Vercel `daemun-api`의 `ADMIN_URL`·`WEB_PUBLIC_URL`·`WEB_URL`, `daemun-web`/`daemun-admin`의 `API_URL`이 실제 origin과 일치해야 한다. 환경변수를 바꾸면 해당 프로젝트를 재배포해야 반영된다.
+- **main 머지 = 배포 — 단, 2026-09-11 현재는 꺼져 있다.** `.github/workflows/deploy.yml`이 `vercel deploy --prod`로 api → web → admin 순서로 올리는데, GitHub 시크릿 `VERCEL_TOKEN`(Vercel → Account Settings → Tokens, scope `junwon-9966`)이 없으면 안내만 찍고 green으로 끝난다. **토큰이 없는 지금은 머지해도 배포되지 않으니** 아래 수동 배포로 올린다. 대안은 각 Vercel 프로젝트 Settings → Git에서 이 저장소를 연결하는 것(계정에 GitHub Login Connection이 먼저 있어야 함) — 그러면 push마다 Vercel이 직접 배포하고 PR마다 프리뷰가 생기며, `deploy.yml`은 지워야 한다(둘 다 있으면 두 번 배포). 프로덕션 API 빌드는 번들 전에 Neon에 마이그레이션을 적용한다(`apps/api/scripts/vercel-build.mjs`) — 그래서 스키마 변경 PR은 생성된 SQL을 꼭 커밋해야 한다. 롤백은 Vercel 대시보드에서 이전 배포를 Promote. main은 브랜치 보호가 걸려 있어 PR로만 들어간다. 수동 배포는 레포 루트에서 `vercel link --project <이름> --scope junwon-9966` 후 `vercel deploy --prod` (서브디렉터리에서 돌리면 그 디렉터리만 올라가 실패).
 
 ---
 
@@ -205,7 +207,8 @@ PUT    /reorder     { ids: string[] } — 드래그 정렬 후 순서대로 보�
 
 - **Next.js 16은 학습 데이터의 Next와 다르다.** `middleware.ts` → `proxy.ts`, `revalidateTag(tag, opts)` 2번째 인자 필수, 캐시 모델 변경. `apps/web/node_modules/next/dist/docs/` 먼저 읽을 것.
 - `/api/auth/*`는 **Origin 헤더가 `ADMIN_URL`과 같아야** CSRF 통과. curl로 테스트할 땐 `-H "Origin: http://localhost:3001"`.
-- 시드는 `conference` 테이블이 비었을 때만 돈다. DB 초기화 = `data/postgres*` 삭제.
+- 시드는 `conference` 테이블이 비었을 때만 돈다. 로컬 DB 초기화 = `pnpm db:down` 후 `data/postgres-dev/` 삭제 (프로덕션은 Neon이라 해당 없음).
+- **서버리스에는 프로세스 메모리가 공유되지 않는다.** 챗봇 레이트 리미터(`lib/rate-limit.ts`, 분당 10회/IP)는 인스턴스마다 따로 세므로 전역 상한이 아니다. 실제 비용 방어선은 Gemini 무료 티어 쿼터다. 부팅 시 1회 작업(마이그레이션·시드·첫 관리자)도 같은 이유로 서버리스 엔트리에서 빠져 있다 (`apps/api/api/index.mjs`).
 - `packages/shared/src/default-site.ts`는 시드 원본이자 web 폴백. DB 시드 후엔 여기 고쳐도 사이트에 안 나옴 — 패널에서 고칠 것.
 - pnpm 10은 postinstall 차단. 네이티브 빌드 패키지는 `pnpm-workspace.yaml`의 `onlyBuiltDependencies`에 등록.
 - Windows에서 dev 서버 켜둔 채 `git mv` 하면 파일 잠금으로 실패할 수 있음.
